@@ -1,3 +1,9 @@
+#ifndef CHARACTER_H
+#define CHARACTER_H
+
+#include <string>
+using namespace std;
+
 class Character
 {
 protected:
@@ -11,5 +17,8 @@ public:
     virtual void useAbility() = 0;
 
     string getName();
+
     virtual ~Character();
 };
+
+#endif
