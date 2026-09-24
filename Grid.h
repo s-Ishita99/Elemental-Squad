@@ -13,4 +13,5 @@ public:
 
     void initialize();
     int getTile(int row, int col) const;
+void display() const;
 };
