@@ -1,4 +1,7 @@
+#include <iostream>
 #include "Grid.h"
+
+using namespace std;
 
 Grid::Grid()
 {
@@ -25,4 +28,17 @@ int Grid::getTile(int row, int col) const
     }
 
     return -1;
+}
+
+void Grid::display() const
+{
+    for (int row = 0; row < ROWS; row++)
+    {
+        for (int col = 0; col < COLS; col++)
+        {
+            cout << grid[row][col] << " ";
+        }
+
+        cout << endl;
+    }
 }
