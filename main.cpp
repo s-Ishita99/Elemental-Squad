@@ -10,12 +10,18 @@ protected:
     string ability;
     string task;
 
+    int x;
+    int y;
+
 public:
-    Character(string n, string a, string t)
+    Character(string n, string a, string t, int startX, int startY)
     {
         name = n;
         ability = a;
         task = t;
+
+        x = startX;
+        y = startY;
     }
 
     virtual void useAbility() = 0;
@@ -32,6 +38,16 @@ public:
         return name;
     }
 
+    int getX()
+    {
+        return x;
+    }
+
+    int getY()
+    {
+        return y;
+    }
+
     virtual ~Character() {}
 };
 
@@ -43,7 +59,8 @@ public:
     Rocky() : Character(
         "Rocky",
         "Strength",
-        "Push boulders and clear heavy obstacles")
+        "Push boulders and clear heavy obstacles",
+        1, 1)
     {
     }
 
@@ -63,7 +80,8 @@ public:
     Sprinty() : Character(
         "Sprinty",
         "Agility",
-        "Cross gaps and handle agility-based obstacles")
+        "Cross gaps and handle agility-based obstacles",
+        1, 2)
     {
     }
 
@@ -83,7 +101,8 @@ public:
     Blaze() : Character(
         "Blaze",
         "Fire",
-        "Melt ice and light torches")
+        "Melt ice and light torches",
+        1, 3)
     {
     }
 
@@ -103,7 +122,8 @@ public:
     Splash() : Character(
         "Splash",
         "Water",
-        "Extinguish fire and handle water-based obstacles")
+        "Extinguish fire and handle water-based obstacles",
+        1, 4)
     {
     }
 
@@ -186,8 +206,13 @@ int main()
         if(choice >= 1 && choice <= 4)
         {
             cout << "\n--------------------------------------------\n";
+
             cout << "Character switched to: "
                  << currentCharacter->getName() << endl;
+
+            cout << "Position: ("
+                 << currentCharacter->getX() << ", "
+                 << currentCharacter->getY() << ")" << endl;
 
             currentCharacter->useAbility();
 
