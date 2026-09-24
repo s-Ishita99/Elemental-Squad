@@ -5,7 +5,8 @@ using namespace std;
 
 Rocky::Rocky()
     : Character("Rocky", "Strength",
-                "Push boulders and clear heavy obstacles")
+                "Push boulders and clear heavy obstacles",
+                1, 1)
 {
 }
 
