@@ -11,12 +11,23 @@ protected:
     string ability;
     string task;
 
+    int x;
+    int y;
+
 public:
-    Character(string n, string a, string t);
+    Character(string n, string a, string t, int startX, int startY);
 
     virtual void useAbility() = 0;
 
     string getName();
+
+    int getX();
+    int getY();
+
+    void moveUp();
+    void moveDown();
+    void moveLeft();
+    void moveRight();
 
     virtual ~Character();
 };
