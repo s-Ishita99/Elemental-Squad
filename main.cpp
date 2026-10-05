@@ -1,139 +1,12 @@
 #include <iostream>
-#include <string>
+
+#include "Rocky.h"
+#include "Sprinty.h"
+#include "Blaze.h"
+#include "Splash.h"
+#include "Grid.h"
+
 using namespace std;
-
-// Base Character Class
-class Character
-{
-protected:
-    string name;
-    string ability;
-    string task;
-
-    int x;
-    int y;
-
-public:
-    Character(string n, string a, string t, int startX, int startY)
-    {
-        name = n;
-        ability = a;
-        task = t;
-
-        x = startX;
-        y = startY;
-    }
-
-    virtual void useAbility() = 0;
-
-    void display()
-    {
-        cout << name << " - "
-             << ability << " - "
-             << task << endl;
-    }
-
-    string getName()
-    {
-        return name;
-    }
-
-    int getX()
-    {
-        return x;
-    }
-
-    int getY()
-    {
-        return y;
-    }
-
-    virtual ~Character() {}
-};
-
-
-// Rocky
-class Rocky : public Character
-{
-public:
-    Rocky() : Character(
-        "Rocky",
-        "Strength",
-        "Push boulders and clear heavy obstacles",
-        1, 1)
-    {
-    }
-
-    void useAbility() override
-    {
-        cout << "Rocky uses Strength!" << endl;
-        cout << "He can push boulders and clear heavy obstacles."
-             << endl;
-    }
-};
-
-
-// Sprinty
-class Sprinty : public Character
-{
-public:
-    Sprinty() : Character(
-        "Sprinty",
-        "Agility",
-        "Cross gaps and handle agility-based obstacles",
-        1, 2)
-    {
-    }
-
-    void useAbility() override
-    {
-        cout << "Sprinty uses Agility!" << endl;
-        cout << "Sprinty can cross gaps and handle agility-based obstacles."
-             << endl;
-    }
-};
-
-
-// Blaze
-class Blaze : public Character
-{
-public:
-    Blaze() : Character(
-        "Blaze",
-        "Fire",
-        "Melt ice and light torches",
-        1, 3)
-    {
-    }
-
-    void useAbility() override
-    {
-        cout << "Blaze uses Fire!" << endl;
-        cout << "Blaze can melt ice and light torches."
-             << endl;
-    }
-};
-
-
-// Splash
-class Splash : public Character
-{
-public:
-    Splash() : Character(
-        "Splash",
-        "Water",
-        "Extinguish fire and handle water-based obstacles",
-        1, 4)
-    {
-    }
-
-    void useAbility() override
-    {
-        cout << "Splash uses Water!" << endl;
-        cout << "Splash can extinguish fire and handle water-based obstacles."
-             << endl;
-    }
-};
 
 
 // Character Menu
@@ -161,6 +34,9 @@ int main()
     Sprinty sprinty;
     Blaze blaze;
     Splash splash;
+
+    // Create Level 1 grid
+    Grid level1;
 
     // Initially Rocky is active
     Character* currentCharacter = &rocky;
