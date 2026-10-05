@@ -1,4 +1,4 @@
-#include "Blaze.h"
+#include "blaze.h"
 #include <iostream>
 
 using namespace std;
