@@ -4,15 +4,11 @@
 using namespace std;
 
 Rocky::Rocky()
-    : Character("Rocky", "Strength",
-                "Push boulders and clear heavy obstacles",
-                1, 1)
+    : Character("Rocky", "Strength", "Push boulders", 0, 0)
 {
 }
 
 void Rocky::useAbility()
 {
-    cout << "Rocky uses Strength!" << endl;
-    cout << "Rocky can push boulders and clear heavy obstacles."
-         << endl;
+    cout << "Rocky uses Strength! He can push boulders." << endl;
 }
