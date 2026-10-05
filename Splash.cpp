@@ -1,4 +1,4 @@
-#include "Splash.h"
+#include "splash.h"
 #include <iostream>
 
 using namespace std;
