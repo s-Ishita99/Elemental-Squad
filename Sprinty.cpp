@@ -4,14 +4,11 @@
 using namespace std;
 
 Sprinty::Sprinty()
-    : Character("Sprinty", "Agility",
-                "Cross gaps and handle agility-based obstacles",1,2)
+    : Character("Sprinty", "Agility", "Cross gaps", 1, 0)
 {
 }
 
 void Sprinty::useAbility()
 {
-    cout << "Sprinty uses Agility!" << endl;
-    cout << "Sprinty can cross gaps and handle agility-based obstacles."
-         << endl;
+    cout << "Sprinty uses Agility! She can cross gaps." << endl;
 }
