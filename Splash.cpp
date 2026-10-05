@@ -5,7 +5,8 @@ using namespace std;
 
 Splash::Splash()
     : Character("Splash", "Water",
-                "Extinguish fire and handle water-based obstacles")
+                "Extinguish fire and handle water-based obstacles",
+                1, 4)
 {
 }
 
