@@ -2,6 +2,7 @@
 #define CHARACTER_H
 
 #include <string>
+
 using namespace std;
 
 class Character
@@ -20,14 +21,13 @@ public:
     virtual void useAbility() = 0;
 
     string getName();
+    string getAbility();
+    string getTask();
 
     int getX();
     int getY();
 
-    void moveUp();
-    void moveDown();
-    void moveLeft();
-    void moveRight();
+    void setPosition(int newX, int newY);
 
     virtual ~Character();
 };
