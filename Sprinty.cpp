@@ -5,7 +5,7 @@ using namespace std;
 
 Sprinty::Sprinty()
     : Character("Sprinty", "Agility",
-                "Cross gaps and handle agility-based obstacles")
+                "Cross gaps and handle agility-based obstacles",1,2)
 {
 }
 
