@@ -15,6 +15,16 @@ string Character::getName()
     return name;
 }
 
+string Character::getAbility()
+{
+    return ability;
+}
+
+string Character::getTask()
+{
+    return task;
+}
+
 int Character::getX()
 {
     return x;
@@ -25,24 +35,10 @@ int Character::getY()
     return y;
 }
 
-void Character::moveUp()
+void Character::setPosition(int newX, int newY)
 {
-    y--;
-}
-
-void Character::moveDown()
-{
-    y++;
-}
-
-void Character::moveLeft()
-{
-    x--;
-}
-
-void Character::moveRight()
-{
-    x++;
+    x = newX;
+    y = newY;
 }
 
 Character::~Character()
