@@ -4,15 +4,11 @@
 using namespace std;
 
 Blaze::Blaze()
-    : Character("Blaze", "Fire",
-                "Melt ice and light torches",
-                1, 3)
+    : Character("Blaze", "Fire", "Melt ice and light torches", 0, 0)
 {
 }
 
 void Blaze::useAbility()
 {
     cout << "Blaze uses Fire!" << endl;
-    cout << "Blaze can melt ice and light torches."
-         << endl;
 }
