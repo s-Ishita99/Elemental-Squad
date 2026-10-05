@@ -9,93 +9,201 @@
 using namespace std;
 
 
-// Character Menu
-void showMenu()
-{
-    cout << "\n============================================\n";
-    cout << "              ELEMENTAL SQUAD\n";
-    cout << "============================================\n";
-
-    cout << "1. Rocky   - Strength - Push boulders\n";
-    cout << "2. Sprinty - Agility  - Cross gaps\n";
-    cout << "3. Blaze   - Fire     - Melt ice / Light torches\n";
-    cout << "4. Splash  - Water    - Extinguish fire\n";
-
-    cout << "5. Exit\n";
-
-    cout << "============================================\n";
-}
-
-
 int main()
 {
-    // Create character objects
+    // ============================================
+    // CREATE CHARACTERS
+    // ============================================
+
     Rocky rocky;
     Sprinty sprinty;
     Blaze blaze;
     Splash splash;
 
-    // Create Level 1 grid
+
+    // ============================================
+    // CREATE LEVEL 1 GRID
+    // ============================================
+
     Grid level1;
 
-    // Initially Rocky is active
+
+    // Rocky is the starting character
+
     Character* currentCharacter = &rocky;
 
-    int choice;
 
-    cout << "Welcome to Elemental Squad!\n";
+    // Key status
 
-    do
+    bool hasKey = false;
+
+
+    // User input
+
+    char choice;
+
+
+    cout << "\n";
+    cout << "============================================\n";
+    cout << "          ELEMENTAL SQUAD - LEVEL 1\n";
+    cout << "============================================\n";
+
+    cout << "\nCharacters:\n";
+    cout << "1 - Rocky   : Push Boulders\n";
+    cout << "2 - Sprinty : Cross Gaps\n";
+
+    cout << "\nControls:\n";
+    cout << "W - Up\n";
+    cout << "S - Down\n";
+    cout << "A - Left\n";
+    cout << "D - Right\n";
+    cout << "1 - Switch to Rocky\n";
+    cout << "2 - Switch to Sprinty\n";
+    cout << "E - Use Ability\n";
+    cout << "Q - Quit\n";
+
+
+    // ============================================
+    // GAME LOOP
+    // ============================================
+
+    while(true)
     {
-        showMenu();
+        cout << "\n--------------------------------------------\n";
 
-        cout << "Enter character number: ";
+        cout << "Current Character: "
+             << currentCharacter->getName() << endl;
+
+        cout << "Position: ("
+             << currentCharacter->getX()
+             << ", "
+             << currentCharacter->getY()
+             << ")" << endl;
+
+        cout << "Key: ";
+
+        if(hasKey)
+        {
+            cout << "COLLECTED";
+        }
+        else
+        {
+            cout << "NOT COLLECTED";
+        }
+
+        cout << "\n--------------------------------------------\n";
+
+
+        // Display grid
+
+        level1.display(currentCharacter);
+
+
+        cout << "Enter command: ";
         cin >> choice;
 
-        switch(choice)
+
+        // ========================================
+        // QUIT
+        // ========================================
+
+        if(choice == 'q' || choice == 'Q')
         {
-            case 1:
-                currentCharacter = &rocky;
-                break;
-
-            case 2:
-                currentCharacter = &sprinty;
-                break;
-
-            case 3:
-                currentCharacter = &blaze;
-                break;
-
-            case 4:
-                currentCharacter = &splash;
-                break;
-
-            case 5:
-                cout << "\nExiting Elemental Squad...\n";
-                break;
-
-            default:
-                cout << "\nInvalid choice! Please select 1-5.\n";
-                continue;
+            cout << "\nExiting game...\n";
+            break;
         }
 
-        if(choice >= 1 && choice <= 4)
+
+        // ========================================
+        // CHARACTER SWITCH
+        // ========================================
+
+        if(choice == '1')
         {
-            cout << "\n--------------------------------------------\n";
+            currentCharacter = &rocky;
 
-            cout << "Character switched to: "
-                 << currentCharacter->getName() << endl;
+            cout << "\nSwitched to Rocky.\n";
 
-            cout << "Position: ("
-                 << currentCharacter->getX() << ", "
-                 << currentCharacter->getY() << ")" << endl;
-
-            currentCharacter->useAbility();
-
-            cout << "--------------------------------------------\n";
+            continue;
         }
 
-    } while(choice != 5);
+
+        if(choice == '2')
+        {
+            currentCharacter = &sprinty;
+
+            cout << "\nSwitched to Sprinty.\n";
+
+            continue;
+        }
+
+
+        // ========================================
+        // ABILITY
+        // ========================================
+
+        if(choice == 'e' || choice == 'E')
+        {
+            level1.useAbility(*currentCharacter);
+
+            continue;
+        }
+
+
+        // ========================================
+        // MOVEMENT
+        // ========================================
+
+        if(choice == 'w' || choice == 'W' ||
+           choice == 'a' || choice == 'A' ||
+           choice == 's' || choice == 'S' ||
+           choice == 'd' || choice == 'D')
+        {
+            bool moved =
+                level1.moveCharacter(*currentCharacter, choice);
+
+
+            if(moved)
+            {
+                // Check for key
+
+                if(level1.collectKey(*currentCharacter))
+                {
+                    hasKey = true;
+                }
+
+
+                // Check exit
+
+                if(level1.reachedExit(*currentCharacter))
+                {
+                    if(hasKey)
+                    {
+                        cout << "\n";
+                        cout << "============================================\n";
+                        cout << "          LEVEL 1 COMPLETED!\n";
+                        cout << "============================================\n";
+
+                        cout << "\nCongratulations!\n";
+                        cout << "You collected the key and reached the exit.\n";
+
+                        break;
+                    }
+                    else
+                    {
+                        cout << "\nThe exit is locked!\n";
+                        cout << "You need the key first.\n";
+                    }
+                }
+            }
+
+            continue;
+        }
+
+
+        cout << "\nInvalid command!\n";
+    }
+
 
     return 0;
 }
