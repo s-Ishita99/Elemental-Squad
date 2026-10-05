@@ -5,7 +5,8 @@ using namespace std;
 
 Blaze::Blaze()
     : Character("Blaze", "Fire",
-                "Melt ice and light torches")
+                "Melt ice and light torches",
+                1, 3)
 {
 }
 
