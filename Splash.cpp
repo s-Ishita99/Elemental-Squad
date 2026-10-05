@@ -4,15 +4,11 @@
 using namespace std;
 
 Splash::Splash()
-    : Character("Splash", "Water",
-                "Extinguish fire and handle water-based obstacles",
-                1, 4)
+    : Character("Splash", "Water", "Extinguish fire", 1, 0)
 {
 }
 
 void Splash::useAbility()
 {
     cout << "Splash uses Water!" << endl;
-    cout << "Splash can extinguish fire and handle water-based obstacles."
-         << endl;
 }
