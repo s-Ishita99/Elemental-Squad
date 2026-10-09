@@ -1,10 +1,40 @@
 #include <iostream>
+#include <limits>
 #include "level1.h"
 #include "Grid.h"
 #include "Rocky.h"
 #include "Sprinty.h"
 
 using namespace std;
+
+char readCommand()
+{
+    char choice;
+    cin >> choice;
+
+    // Handle arrow-key escape sequences on a terminal
+    if(choice == 27)
+    {
+        char bracket, arrow;
+
+        cin.get(bracket);
+        cin.get(arrow);
+
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+        if(bracket == '[')
+        {
+            if(arrow == 'A') return 'w';  // Up
+            if(arrow == 'B') return 's';  // Down
+            if(arrow == 'D') return 'a';  // Left
+            if(arrow == 'C') return 'd';  // Right
+        }
+
+        return '?';
+    }
+
+    return choice;
+}
 
 void level1Intro()
 {
@@ -17,15 +47,18 @@ void level1Intro()
     cout << "1. Rocky   - Push boulders\n";
     cout << "2. Sprinty - Cross gaps\n";
 
-    cout << "\nObjective:\n";
-    cout << "Collect the key and reach the exit.\n";
+    cout << "\nObjective: Collect the key and reach the exit.\n";
 
-    cout << "\nControls:\n";
-    cout << "W/A/S/D - Move\n";
-    cout << "1/2     - Switch character\n";
-    cout << "E       - Use ability\n";
-    cout << "R       - Restart level\n";
-    cout << "Q       - Quit\n";
+    cout << "\nCONTROLS:\n";
+    cout << "W / Up Arrow    - Move up\n";
+    cout << "S / Down Arrow  - Move down\n";
+    cout << "A / Left Arrow  - Move left\n";
+    cout << "D / Right Arrow - Move right\n";
+    cout << "1               - Switch to Rocky\n";
+    cout << "2               - Switch to Sprinty\n";
+    cout << "E               - Use ability\n";
+    cout << "R               - Restart level\n";
+    cout << "Q               - Quit level\n";
 }
 
 void level1Start()
@@ -35,13 +68,13 @@ void level1Start()
     Grid grid;
 
     Character* current = nullptr;
+
     bool hasKey = false;
     int moves = 0;
     char choice;
+    int characterChoice;
 
     level1Intro();
-
-    int characterChoice;
 
     do
     {
@@ -57,17 +90,19 @@ void level1Start()
 
     while(true)
     {
-        cout << "\nCurrent character: "
-             << current->getName() << '\n';
-
+        cout << "\n------------------------------------\n";
+        cout << "Character: " << current->getName() << '\n';
         cout << "Moves: " << moves << '\n';
-        cout << "Key: " << (hasKey ? "Collected" : "Not collected")
-             << '\n';
+        cout << "Key: " << (hasKey ? "Collected" : "Not collected") << '\n';
+
+        // Keep controls visible during gameplay
+        cout << "Controls: WASD/Arrows | 1 Rocky | 2 Sprinty"
+             << " | E Ability | R Restart | Q Quit\n";
 
         grid.display(current);
 
         cout << "Enter command: ";
-        cin >> choice;
+        choice = readCommand();
 
         if(choice == 'q' || choice == 'Q')
         {
@@ -77,13 +112,23 @@ void level1Start()
 
         if(choice == '1')
         {
-            current = &rocky;
+            if(current != &rocky)
+            {
+                rocky.setPosition(current->getX(), current->getY());
+                current = &rocky;
+            }
+
             continue;
         }
 
         if(choice == '2')
         {
-            current = &sprinty;
+            if(current != &sprinty)
+            {
+                sprinty.setPosition(current->getX(), current->getY());
+                current = &sprinty;
+            }
+
             continue;
         }
 
@@ -99,7 +144,7 @@ void level1Start()
             sprinty = Sprinty();
             grid = Grid();
 
-            current = &rocky;
+            current = (characterChoice == 1) ? &rocky : &sprinty;
             hasKey = false;
             moves = 0;
 
@@ -126,10 +171,8 @@ void level1Start()
                     cout << "Total moves: " << moves << '\n';
                     return;
                 }
-                else
-                {
-                    cout << "The exit is locked! Find the key first.\n";
-                }
+
+                cout << "The exit is locked! Find the key first.\n";
             }
         }
     }
