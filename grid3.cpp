@@ -11,18 +11,19 @@ void Grid3::createMap()
     string rocky[5][7] =
     {
         {".", ".", "B", ".", ".", "CW", "#"},
-        {"B", "B", ".", "B", ".", ".", "#"},
+        {"#", "B", ".", "B", ".", ".", "#"},
         {".", ".", "B", "CW", ".", ".", "E"},
         {"H", ".", ".", ".", ".", ".", "#"},
         {"#", "#", "#", "#", "#", "#", "#"}
     };
 
+    // Sprinty's map — positions preserved.
     string sprinty[5][7] =
     {
         {"#", "#", "#", "#", "#", "#", "#"},
         {"#", "#", "#", ".", ".", "BO", "#"},
-        {".", "BO", ".", ".", "SW", ".", "#"},
-        {"BO", "SW", "BO", ".", ".", ".", "#"},
+        {".", "BO", ".", "BO", "SW", ".", "#"},
+        {"BO", "SW", ".", ".", ".", ".", "#"},
         {"#", ".", "E", "#", "#", "#", "#"}
     };
 
@@ -44,6 +45,7 @@ void Grid3::createMap()
         {"#", "#", "#", "#", "#", "#", "#"}
     };
 
+    // Combine all four maps into the 10 x 14 grid.
     for (int r = 0; r < 5; r++)
     {
         for (int c = 0; c < 7; c++)
@@ -56,7 +58,7 @@ void Grid3::createMap()
         }
     }
 
-    // Character positions are drawn separately.
+    // Preserve the original starting positions.
     tiles[0][0] = ".";
     tiles[2][7] = ".";
     tiles[5][9] = ".";
