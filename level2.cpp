@@ -2,8 +2,6 @@
 #include <string>
 #include <iomanip>
 #include <chrono>
-#include <sys/select.h>
-#include <unistd.h>
 #include <cctype>
 #include <sstream>
 
@@ -504,33 +502,13 @@ private:
         collectItem(tile, row, col);
     }
 
+    // Read a complete command when the player presses Enter.
     bool readCommand(string& command)
     {
-        fd_set inputSet;
-        FD_ZERO(&inputSet);
-        FD_SET(STDIN_FILENO, &inputSet);
+        if (!getline(cin, command))
+            return false;
 
-        timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 100000;
-
-        int result = select(
-            STDIN_FILENO + 1,
-            &inputSet,
-            nullptr,
-            nullptr,
-            &timeout
-        );
-
-        if (result > 0)
-        {
-            if (!getline(cin, command))
-                return false;
-
-            return true;
-        }
-
-        return false;
+        return true;
     }
 
     void displayLegend()
@@ -551,7 +529,7 @@ private:
     {
         cout << "\n";
 
-        // CHANGED: Display the symbol menu above the grid.
+        // Symbol menu appears above the grid.
         displayLegend();
 
         for (int r = 0; r < ROWS; r++)
@@ -652,8 +630,6 @@ private:
             }
         }
 
-        // The old displayLegend() call here has been removed.
-
         if (codeInputMode)
             cout << "\nEnter code (123), then press Enter.\n";
         else
@@ -672,7 +648,6 @@ public:
     void run()
     {
         bool redraw = true;
-        int previousRemaining = -1;
 
         while (!gameOver && !gameWon)
         {
@@ -686,18 +661,7 @@ public:
                 {
                     gridRevealed = false;
                     message = "Time is up! Splash's map is hidden again.";
-                    previousRemaining = -1;
                     redraw = true;
-                }
-                else
-                {
-                    int remaining = 15 - static_cast<int>(elapsed);
-
-                    if (remaining != previousRemaining)
-                    {
-                        previousRemaining = remaining;
-                        redraw = true;
-                    }
                 }
             }
 
@@ -712,7 +676,7 @@ public:
             string command;
 
             if (!readCommand(command))
-                continue;
+                break;
 
             stringstream input(command);
             string action;
@@ -724,9 +688,11 @@ public:
                 continue;
 
             for (char& ch : action)
+            {
                 ch = static_cast<char>(
                     toupper(static_cast<unsigned char>(ch))
                 );
+            }
 
             if (codeInputMode)
             {
