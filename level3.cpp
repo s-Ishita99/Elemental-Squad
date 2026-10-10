@@ -2,10 +2,10 @@
 #include <string>
 #include <iomanip>
 #include <chrono>
-#include <termios.h>
-#include <unistd.h>
 #include <sys/select.h>
+#include <unistd.h>
 #include <cctype>
+#include <sstream>
 
 #include "level3.h"
 #include "grid3.h"
@@ -39,7 +39,6 @@ private:
     bool codeRevealed[3];
     bool codeSolved;
     string codeSequence;
-    string codeInput;
     bool codeInputMode;
 
     bool hasSplashKey;
@@ -52,13 +51,8 @@ private:
 
     string message;
 
-    termios oldTerminal;
-    bool terminalSaved;
-
     void initialize()
     {
-        grid.createMap();
-
         stage = 0;
         lives = 3;
 
@@ -92,7 +86,6 @@ private:
 
         codeSolved = false;
         codeSequence = "123";
-        codeInput = "";
         codeInputMode = false;
 
         hasSplashKey = false;
@@ -103,7 +96,6 @@ private:
         gameWon = false;
 
         message = "Find your way through all four puzzles.";
-        terminalSaved = false;
     }
 
     bool insideCurrentArea(int r, int c)
@@ -137,14 +129,14 @@ private:
     {
         lives--;
 
-        message = reason + " Lives remaining: " + to_string(lives);
-
         if (lives <= 0)
         {
             gameOver = true;
             message = "Game over! You have no lives remaining.";
             return;
         }
+
+        message = reason + " Lives remaining: " + to_string(lives);
 
         if (stage == 0)
         {
@@ -172,13 +164,11 @@ private:
 
     void activateSwitch(int r, int c)
     {
-        // Correct switch: global row 4, column 9 (1-based).
         if (r == 3 && c == 8)
         {
             switchOpened = true;
             message = "Right switch! The exit is now unlocked.";
         }
-        // Wrong switch: global row 3, column 12 (1-based).
         else if (r == 2 && c == 11)
         {
             message = "Wrong switch! The exit is still locked.";
@@ -284,8 +274,8 @@ private:
             return;
         }
 
-        // These coordinates match the three C# tiles in Grid3.cpp.
-        if (r == 6 && c == 7)
+        // Coordinates of the three coded walls.
+        if (r == 6 && c == 8)
         {
             codeRevealed[0] = true;
             message = "First wall code revealed: 1";
@@ -339,8 +329,7 @@ private:
             else
             {
                 codeInputMode = true;
-                codeInput.clear();
-                message = "Enter the three-digit code, then press Enter.";
+                message = "Enter the three-digit code and press Enter.";
             }
         }
         else
@@ -354,7 +343,6 @@ private:
 
     void interact()
     {
-        // Splash's map-reveal ability.
         if (stage == 3)
         {
             int tr = row + faceRow;
@@ -420,7 +408,6 @@ private:
                 return;
             }
 
-            // The designated cracked wall hides the key.
             if (tr == 0 && tc == 5)
             {
                 grid.tiles[tr][tc] = "K";
@@ -484,7 +471,7 @@ private:
 
         if (tile == "E")
         {
-            message = "Face the exit and press E to interact.";
+            message = "You are facing the exit. Type E and press Enter.";
             return;
         }
 
@@ -519,7 +506,9 @@ private:
         collectItem(tile, row, col);
     }
 
-    char readKey()
+    // Wait for a complete line. The timeout allows Splash's timer
+    // to keep running while the player is deciding what to enter.
+    bool readCommand(string& command)
     {
         fd_set inputSet;
         FD_ZERO(&inputSet);
@@ -539,42 +528,13 @@ private:
 
         if (result > 0)
         {
-            char key;
+            if (!getline(cin, command))
+                return false;
 
-            if (read(STDIN_FILENO, &key, 1) == 1)
-                return key;
+            return true;
         }
 
-        return '\0';
-    }
-
-    void handleCodeInput(char key)
-    {
-        if (key == '\n' || key == '\r')
-        {
-            if (codeInput == codeSequence)
-            {
-                codeSolved = true;
-                message = "Correct code! Blaze's exit is unlocked.";
-            }
-            else
-            {
-                message = "Incorrect code. Try again at the exit.";
-            }
-
-            codeInputMode = false;
-            codeInput.clear();
-        }
-        else if (key == 127 || key == 8)
-        {
-            if (!codeInput.empty())
-                codeInput.pop_back();
-        }
-        else if (isdigit(static_cast<unsigned char>(key)))
-        {
-            if (codeInput.size() < 3)
-                codeInput += key;
-        }
+        return false;
     }
 
     void displayLegend()
@@ -593,14 +553,13 @@ private:
 
     void displayGrid()
     {
-        cout << '\n';
+        cout << "\n";
 
         for (int r = 0; r < ROWS; r++)
         {
             for (int c = 0; c < COLS; c++)
             {
                 string tile = grid.tiles[r][c];
-
                 bool isCharacter = false;
 
                 for (int p = 0; p < 4; p++)
@@ -639,8 +598,10 @@ private:
 
         if (stage == 0)
         {
-            cout << "Hammer: " << (hasHammer ? "Collected" : "Not collected")
-                 << " | Key: " << (hasRockyKey ? "Collected" : "Not collected")
+            cout << "Hammer: "
+                 << (hasHammer ? "Collected" : "Not collected")
+                 << " | Key: "
+                 << (hasRockyKey ? "Collected" : "Not collected")
                  << '\n';
         }
         else if (stage == 1)
@@ -650,8 +611,10 @@ private:
         }
         else if (stage == 2)
         {
-            cout << "Potion: " << (hasPotion ? "Collected" : "Not collected")
-                 << " | Torch: " << (torchLit ? "Lit" : "Unlit") << '\n';
+            cout << "Potion: "
+                 << (hasPotion ? "Collected" : "Not collected")
+                 << " | Torch: "
+                 << (torchLit ? "Lit" : "Unlit") << '\n';
 
             cout << "Wall codes found: ";
 
@@ -663,14 +626,16 @@ private:
                     cout << "? ";
             }
 
-            cout << "\nCode solved: " << (codeSolved ? "Yes" : "No") << '\n';
+            cout << "\nCode solved: "
+                 << (codeSolved ? "Yes" : "No") << '\n';
         }
         else
         {
             cout << "Splash key: "
                  << (hasSplashKey ? "Collected" : "Not collected") << '\n';
 
-            cout << "Map reveals remaining: " << 2 - revealUses << '\n';
+            cout << "Map reveals remaining: "
+                 << 2 - revealUses << '\n';
 
             if (gridRevealed)
             {
@@ -691,14 +656,10 @@ private:
         displayLegend();
 
         if (codeInputMode)
-        {
-            cout << "\nEnter the three-digit code, then press Enter: "
-                 << codeInput << '\n';
-        }
+            cout << "\nEnter code (123), then press Enter.\n";
         else
-        {
-            cout << "\nControls: W/A/S/D = Move | E = Interact | Q = Quit\n";
-        }
+            cout << "\nEnter a command and press Enter.\n"
+                 << "Examples: D | D 2 | W | E | Q\n";
 
         cout << "Message: " << message << '\n';
     }
@@ -711,27 +672,8 @@ public:
 
     void run()
     {
-        if (tcgetattr(STDIN_FILENO, &oldTerminal) == -1)
-        {
-            cout << "Could not set up terminal keyboard input.\n";
-            cout << "Run this game in your Mac Terminal or VS Code terminal.\n";
-            return;
-        }
-
-        terminalSaved = true;
-
-        termios raw = oldTerminal;
-        raw.c_lflag &= ~(ICANON | ECHO);
-        raw.c_cc[VMIN] = 1;
-        raw.c_cc[VTIME] = 0;
-
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &raw) == -1)
-        {
-            cout << "Could not enable keyboard controls.\n";
-            return;
-        }
-
         bool redraw = true;
+        int previousRemaining = -1;
 
         while (!gameOver && !gameWon)
         {
@@ -745,63 +687,130 @@ public:
                 {
                     gridRevealed = false;
                     message = "Time is up! Splash's map is hidden again.";
+                    previousRemaining = -1;
                     redraw = true;
+                }
+                else
+                {
+                    int remaining = 15 - static_cast<int>(elapsed);
+
+                    if (remaining != previousRemaining)
+                    {
+                        previousRemaining = remaining;
+                        redraw = true;
+                    }
                 }
             }
 
-            // FIX: only redraw when something changes.
             if (redraw)
             {
                 cout << "\033[2J\033[H";
                 displayGrid();
-                cout << flush;
+                cout << "\nCommand: " << flush;
                 redraw = false;
             }
 
-            char key = readKey();
+            string command;
 
-            // No key was pressed. Keep waiting instead of redrawing.
-            if (key == '\0')
+            if (!readCommand(command))
                 continue;
+
+            stringstream input(command);
+            string action;
+            int steps = 1;
+
+            input >> action;
+
+            if (action.empty())
+                continue;
+
+            for (char& ch : action)
+                ch = static_cast<char>(
+                    toupper(static_cast<unsigned char>(ch))
+                );
 
             if (codeInputMode)
             {
-                handleCodeInput(key);
+                if (action == codeSequence)
+                {
+                    codeSolved = true;
+                    message = "Correct code! Blaze's exit is unlocked.";
+                }
+                else
+                {
+                    message = "Incorrect code. Try again at the exit.";
+                }
+
+                codeInputMode = false;
                 redraw = true;
                 continue;
             }
 
-            if (key == 'q' || key == 'Q')
+            if (action == "Q")
             {
                 message = "Leaving Level 3.";
                 break;
             }
-            else if (key == 'w' || key == 'W')
-            {
-                movePlayer(-1, 0);
-            }
-            else if (key == 's' || key == 'S')
-            {
-                movePlayer(1, 0);
-            }
-            else if (key == 'a' || key == 'A')
-            {
-                movePlayer(0, -1);
-            }
-            else if (key == 'd' || key == 'D')
-            {
-                movePlayer(0, 1);
-            }
-            else if (key == 'e' || key == 'E')
+
+            if (action == "E")
             {
                 interact();
+                redraw = true;
+                continue;
             }
 
-            redraw = true;
-        }
+            if (action == "W" || action == "A" ||
+                action == "S" || action == "D")
+            {
+                if (input >> steps)
+                {
+                    if (steps < 1)
+                        steps = 1;
 
-        if (terminalSaved)
-            tcsetattr(STDIN_FILENO, TCSANOW, &oldTerminal);
+                    if (steps > 20)
+                        steps = 20;
+                }
+
+                int dr = 0;
+                int dc = 0;
+
+                if (action == "W")
+                    dr = -1;
+                else if (action == "S")
+                    dr = 1;
+                else if (action == "A")
+                    dc = -1;
+                else if (action == "D")
+                    dc = 1;
+
+                for (int i = 0; i < steps; i++)
+                {
+                    int oldRow = row;
+                    int oldCol = col;
+                    int oldLives = lives;
+                    int oldStage = stage;
+
+                    movePlayer(dr, dc);
+
+                    // Stop if movement is blocked, a life is lost,
+                    // or the player changes puzzle.
+                    if (row == oldRow && col == oldCol)
+                        break;
+
+                    if (lives != oldLives ||
+                        stage != oldStage ||
+                        gameOver || gameWon)
+                        break;
+                }
+
+                redraw = true;
+            }
+            else
+            {
+                message = "Invalid command. Use W, A, S, D, E or Q.";
+                redraw = true;
+            }
+        }
 
         cout << "\033[2J\033[H";
 
@@ -834,11 +843,12 @@ void level3Intro()
 
     cout << "\nFour puzzle areas form one 10 x 14 map.\n";
     cout << "Complete each area in clockwise order.\n";
-    cout << "\nControls:\n";
+
+    cout << "\nEnter a command, then press Enter:\n";
     cout << "W = Up, S = Down, A = Left, D = Right\n";
+    cout << "D 2 = Move right up to two tiles\n";
     cout << "E = Interact\n";
     cout << "Q = Quit Level 3\n";
-    cout << "\nPress the movement keys directly; Enter is not required.\n";
 }
 
 void level3Start()
