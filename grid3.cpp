@@ -16,7 +16,7 @@ void Grid3::createMap()
         {"H", ".", ".", ".", ".", ".", "#"},
         {"#", "#", "#", "#", "#", "#", "#"}
     };
-
+ 
     // Sprinty's map — positions preserved.
     string sprinty[5][7] =
     {
