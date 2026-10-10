@@ -1,9 +1,7 @@
-
 #include <iostream>
 #include "grid2.h"
-using namespace std;
 
-extern char grid2[ROWS][COLS];
+using namespace std;
 
 int playerRow, playerCol;
 int lives;
@@ -14,13 +12,23 @@ bool torchLit;
 bool gameOver;
 bool levelWon;
 
+// Check whether a position is inside the cave
+bool isCaveTile(int row, int col)
+{
+    // Rows 8-10, columns 11-14 (1-based)
+    return row >= 7 && row <= 9 &&
+           col >= 10 && col <= 13;
+}
+
 void displayGrid()
 {
     cout << "\nLives: " << lives;
     cout << "\nCharacter: "
          << (currentCharacter == 'C' ? "Blaze" : "Splash");
-    cout << "\nPotion: " << (hasPotion ? "Collected" : "Not collected");
-    cout << "\nTorch: " << (torchLit ? "Lit" : "Unlit");
+    cout << "\nPotion: "
+         << (hasPotion ? "Collected" : "Not collected");
+    cout << "\nTorch: "
+         << (torchLit ? "Lit" : "Unlit");
 
     cout << "\n\n";
 
@@ -32,6 +40,8 @@ void displayGrid()
                 cout << currentCharacter << ' ';
             else if (grid2[i][j] == 'P' && hasPotion)
                 cout << ". ";
+            else if (grid2[i][j] == 'T' && torchLit)
+                cout << "T ";
             else
                 cout << grid2[i][j] << ' ';
         }
@@ -54,7 +64,7 @@ void interact()
         }
         else
         {
-            cout << "\nSplash cannot collect the potion. Switch to Blaze!\n";
+            cout << "\nSwitch to Blaze to collect the potion!\n";
         }
     }
     else if (grid2[playerRow][playerCol] == 'T')
@@ -65,13 +75,12 @@ void interact()
         }
         else if (!hasPotion)
         {
-            cout << "\nBlaze needs the potion before lighting the torch!\n";
+            cout << "\nCollect the potion before lighting the torch!\n";
         }
         else if (!torchLit)
         {
             torchLit = true;
-            cout << "\nBlaze used the potion and lit the torch!\n";
-            cout << "The cave can now be explored.\n";
+            cout << "\nBlaze lit the torch! The cave is now accessible.\n";
         }
         else
         {
@@ -95,6 +104,13 @@ void movePlayer(int dr, int dc)
     if (grid2[nr][nc] == '#')
     {
         cout << "\nA wall blocks the way!\n";
+        return;
+    }
+
+    // Do not allow entering the cave before lighting the torch
+    if (!torchLit && isCaveTile(nr, nc))
+    {
+        cout << "\nThe cave is too dark! Collect the potion and light the torch first.\n";
         return;
     }
 
@@ -143,13 +159,29 @@ void movePlayer(int dr, int dc)
         }
         else
         {
-            cout << "\nThe exit is still locked. Light the torch first!\n";
+            cout << "\nThe exit is locked! Light the torch first.\n";
         }
         return;
     }
 
+    // Move onto the next tile
     playerRow = nr;
     playerCol = nc;
+
+    // Collect the potion automatically when Blaze steps on it
+    if (grid2[playerRow][playerCol] == 'P')
+    {
+        if (currentCharacter == 'C')
+        {
+            hasPotion = true;
+            grid2[playerRow][playerCol] = '.';
+            cout << "\nBlaze collected the potion!\n";
+        }
+        else
+        {
+            cout << "\nSwitch to Blaze to collect the potion!\n";
+        }
+    }
 }
 
 bool level2Start()
