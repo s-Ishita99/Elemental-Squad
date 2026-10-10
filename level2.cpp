@@ -162,10 +162,11 @@ private:
 
     void activateSwitch(int r, int c)
     {
+        // Correct switch: row 4, column 9 (1-based).
         if (r == 3 && c == 8)
         {
             switchOpened = true;
-            message = "Right switch! The exit is now unlocked.";
+            message = "Correct switch! The exit is now unlocked.";
         }
         else if (r == 2 && c == 11)
         {
@@ -441,6 +442,7 @@ private:
         }
     }
 
+    // Normal one-tile movement for all characters.
     void movePlayer(int dr, int dc)
     {
         faceRow = dr;
@@ -502,7 +504,58 @@ private:
         collectItem(tile, row, col);
     }
 
-    // Read a complete command when the player presses Enter.
+    // Sprinty's two-tile jump.
+    // The intermediate tile is skipped completely.
+    void moveSprintyJump(int dr, int dc)
+    {
+        faceRow = dr;
+        faceCol = dc;
+
+        int nr = row + 2 * dr;
+        int nc = col + 2 * dc;
+
+        if (nr < 0 || nr >= ROWS ||
+            nc < 0 || nc >= COLS ||
+            !insideCurrentArea(nr, nc))
+        {
+            message = "Sprint cannot jump outside this puzzle area.";
+            return;
+        }
+
+        // Check only the destination tile.
+        // The tile between Sprinty and the destination is skipped.
+        string tile = grid.tiles[nr][nc];
+
+        if (isWall(tile))
+        {
+            message = "Sprint cannot land on a wall.";
+            return;
+        }
+
+        if (tile == "E")
+        {
+            message = "Sprinty is facing the exit. Type E and press Enter.";
+            return;
+        }
+
+        if (tile == "B")
+        {
+            message = "Sprinty cannot push boulders.";
+            return;
+        }
+
+        row = nr;
+        col = nc;
+
+        updatePosition();
+
+        // Only the destination tile can trigger an item or bomb.
+        collectItem(tile, row, col);
+
+        if (!gameOver && lives > 0)
+            message = "Sprinty jumped two tiles!";
+    }
+
     bool readCommand(string& command)
     {
         if (!getline(cin, command))
@@ -528,8 +581,6 @@ private:
     void displayGrid()
     {
         cout << "\n";
-
-        // Symbol menu appears above the grid.
         displayLegend();
 
         for (int r = 0; r < ROWS; r++)
@@ -634,7 +685,7 @@ private:
             cout << "\nEnter code (123), then press Enter.\n";
         else
             cout << "\nEnter a command and press Enter.\n"
-                 << "Examples: D | D 2 | W | E | Q\n";
+                 << "Examples: D | DD | D 2 | W | E | Q\n";
 
         cout << "Message: " << message << '\n';
     }
@@ -724,55 +775,67 @@ public:
                 continue;
             }
 
-            if (action == "W" || action == "A" ||
-                action == "S" || action == "D")
-            {
-                if (input >> steps)
-                {
-                    if (steps < 1)
-                        steps = 1;
+            int dr = 0;
+            int dc = 0;
+            bool validDirection = true;
 
-                    if (steps > 20)
-                        steps = 20;
-                }
-
-                int dr = 0;
-                int dc = 0;
-
-                if (action == "W")
-                    dr = -1;
-                else if (action == "S")
-                    dr = 1;
-                else if (action == "A")
-                    dc = -1;
-                else if (action == "D")
-                    dc = 1;
-
-                for (int i = 0; i < steps; i++)
-                {
-                    int oldRow = row;
-                    int oldCol = col;
-                    int oldLives = lives;
-                    int oldStage = stage;
-
-                    movePlayer(dr, dc);
-
-                    if (row == oldRow && col == oldCol)
-                        break;
-
-                    if (lives != oldLives ||
-                        stage != oldStage ||
-                        gameOver || gameWon)
-                        break;
-                }
-
-                redraw = true;
-            }
+            if (action == "W" || action == "WW")
+                dr = -1;
+            else if (action == "S" || action == "SS")
+                dr = 1;
+            else if (action == "A" || action == "AA")
+                dc = -1;
+            else if (action == "D" || action == "DD")
+                dc = 1;
             else
+                validDirection = false;
+
+            if (!validDirection)
             {
-                message = "Invalid command. Use W, A, S, D, E or Q.";
+                message = "Invalid command. Use W, A, S, D, DD, E or Q.";
                 redraw = true;
+                continue;
             }
+
+            // DD, AA, WW and SS mean a two-tile command.
+            if (action.length() == 2)
+                steps = 2;
+            else if (input >> steps)
+            {
+                if (steps < 1)
+                    steps = 1;
+
+                if (steps > 20)
+                    steps = 20;
+            }
+
+            // Sprinty's two-step movement skips the intermediate tile.
+            if (stage == 1 && steps >= 2)
+            {
+                moveSprintyJump(dr, dc);
+                steps -= 2;
+            }
+
+            // Any remaining steps use normal movement.
+            for (int i = 0; i < steps; i++)
+            {
+                int oldRow = row;
+                int oldCol = col;
+                int oldLives = lives;
+                int oldStage = stage;
+
+                movePlayer(dr, dc);
+
+                if (row == oldRow && col == oldCol)
+                    break;
+
+                if (lives != oldLives ||
+                    stage != oldStage ||
+                    gameOver || gameWon)
+                    break;
+            }
+
+            redraw = true;
         }
 
         cout << "\033[2J\033[H";
@@ -809,7 +872,7 @@ void level3Intro()
 
     cout << "\nEnter a command, then press Enter:\n";
     cout << "W = Up, S = Down, A = Left, D = Right\n";
-    cout << "D 2 = Move right up to two tiles\n";
+    cout << "DD or D 2 = Sprinty jumps two tiles\n";
     cout << "E = Interact\n";
     cout << "Q = Quit Level 3\n";
 }
