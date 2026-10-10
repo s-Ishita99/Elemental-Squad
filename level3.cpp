@@ -2,10 +2,9 @@
 #include <string>
 #include <iomanip>
 #include <chrono>
-#include <sys/select.h>
-#include <unistd.h>
 #include <cctype>
 #include <sstream>
+#include <stack>
 
 #include "level3.h"
 #include "grid3.h"
@@ -18,6 +17,37 @@ class Level3
 private:
     static const int ROWS = 10;
     static const int COLS = 14;
+
+    // STACK: stores previous player positions for undo.
+    struct MoveState
+    {
+        int stage;
+        int row;
+        int col;
+
+        bool boulderPushed;
+        int boulderFromRow;
+        int boulderFromCol;
+        int boulderToRow;
+        int boulderToCol;
+    };
+
+    stack<MoveState> undoStack;
+
+    // LINKED LIST: stores collected inventory items.
+    struct InventoryNode
+    {
+        string item;
+        InventoryNode* next;
+
+        InventoryNode(string name)
+        {
+            item = name;
+            next = nullptr;
+        }
+    };
+
+    InventoryNode* inventoryHead = nullptr;
 
     Grid3 grid;
 
@@ -50,6 +80,122 @@ private:
     bool gameWon;
 
     string message;
+
+    // Add an item to the linked list.
+    // Avoid duplicate entries.
+    void addInventoryItem(const string& item)
+    {
+        InventoryNode* temp = inventoryHead;
+
+        while (temp != nullptr)
+        {
+            if (temp->item == item)
+                return;
+
+            temp = temp->next;
+        }
+
+        InventoryNode* newNode = new InventoryNode(item);
+
+        if (inventoryHead == nullptr)
+        {
+            inventoryHead = newNode;
+            return;
+        }
+
+        temp = inventoryHead;
+
+        while (temp->next != nullptr)
+            temp = temp->next;
+
+        temp->next = newNode;
+    }
+
+    // Display inventory by traversing the linked list.
+    void displayInventory()
+    {
+        cout << "\nInventory: ";
+
+        if (inventoryHead == nullptr)
+        {
+            cout << "Empty";
+        }
+        else
+        {
+            InventoryNode* temp = inventoryHead;
+
+            while (temp != nullptr)
+            {
+                cout << "[" << temp->item << "] ";
+                temp = temp->next;
+            }
+        }
+
+        cout << '\n';
+    }
+
+    // Free dynamically allocated linked-list nodes.
+    void clearInventory()
+    {
+        while (inventoryHead != nullptr)
+        {
+            InventoryNode* temp = inventoryHead;
+            inventoryHead = inventoryHead->next;
+            delete temp;
+        }
+    }
+
+    // Save a previous position on the stack.
+    void saveMove(int oldStage, int oldRow, int oldCol,
+                  bool pushed = false,
+                  int fromRow = 0, int fromCol = 0,
+                  int toRow = 0, int toCol = 0)
+    {
+        MoveState previous;
+
+        previous.stage = oldStage;
+        previous.row = oldRow;
+        previous.col = oldCol;
+
+        previous.boulderPushed = pushed;
+        previous.boulderFromRow = fromRow;
+        previous.boulderFromCol = fromCol;
+        previous.boulderToRow = toRow;
+        previous.boulderToCol = toCol;
+
+        undoStack.push(previous);
+    }
+
+    // Undo the latest successful movement.
+    void undoMove()
+    {
+        if (undoStack.empty())
+        {
+            message = "No moves available to undo.";
+            return;
+        }
+
+        MoveState previous = undoStack.top();
+        undoStack.pop();
+
+        // Restore a boulder if that move pushed one.
+        if (previous.boulderPushed)
+        {
+            grid.tiles[previous.boulderFromRow]
+                      [previous.boulderFromCol] = "B";
+
+            grid.tiles[previous.boulderToRow]
+                      [previous.boulderToCol] = ".";
+        }
+
+        stage = previous.stage;
+        row = previous.row;
+        col = previous.col;
+
+        updatePosition();
+
+        message = "Undo successful! Previous position restored.";
+    }
 
     void initialize()
     {
@@ -164,10 +310,11 @@ private:
 
     void activateSwitch(int r, int c)
     {
+        // Correct switch: row 4, column 9 (1-based).
         if (r == 3 && c == 8)
         {
             switchOpened = true;
-            message = "Right switch! The exit is now unlocked.";
+            message = "Correct switch! The exit is now unlocked.";
         }
         else if (r == 2 && c == 11)
         {
@@ -184,6 +331,8 @@ private:
         if (tile == "H")
         {
             hasHammer = true;
+            addInventoryItem("Hammer");
+
             grid.tiles[r][c] = ".";
             message = "You collected the hammer!";
         }
@@ -192,11 +341,13 @@ private:
             if (stage == 0)
             {
                 hasRockyKey = true;
+                addInventoryItem("Rocky's Key");
                 message = "You collected Rocky's key!";
             }
             else if (stage == 3)
             {
                 hasSplashKey = true;
+                addInventoryItem("Splash's Key");
                 message = "You collected Splash's key!";
             }
 
@@ -205,6 +356,8 @@ private:
         else if (tile == "P")
         {
             hasPotion = true;
+            addInventoryItem("Potion");
+
             grid.tiles[r][c] = ".";
             message = "You collected the potion!";
         }
@@ -274,7 +427,6 @@ private:
             return;
         }
 
-        // Coordinates of the three coded walls.
         if (r == 6 && c == 8)
         {
             codeRevealed[0] = true;
@@ -366,13 +518,15 @@ private:
             revealUses++;
             revealStart = steady_clock::now();
 
-            message = "Map revealed for 15 seconds! Uses remaining: " +
+            message = "Map revealed for 5 seconds! Uses remaining: " +
                       to_string(2 - revealUses);
             return;
         }
 
-        // Blaze can light the torch while standing on it.
-        if (stage == 2 && grid.tiles[row][col] == "T")
+        // Light the torch only if it has not been lit yet.
+        if (stage == 2 &&
+            grid.tiles[row][col] == "T" &&
+            !torchLit)
         {
             if (!hasPotion)
             {
@@ -429,10 +583,14 @@ private:
             {
                 message = "Collect the potion before lighting the torch.";
             }
-            else
+            else if (!torchLit)
             {
                 torchLit = true;
                 message = "Torch lit! You can now reveal the wall codes.";
+            }
+            else
+            {
+                message = "The torch is already lit. Look for the wall codes.";
             }
         }
         else if (stage == 2 && tile == "C#")
@@ -445,10 +603,16 @@ private:
         }
     }
 
+    // Normal one-tile movement.
     void movePlayer(int dr, int dc)
     {
         faceRow = dr;
         faceCol = dc;
+
+        int oldRow = row;
+        int oldCol = col;
+        int oldStage = stage;
+        int oldLives = lives;
 
         int nr = row + dr;
         int nc = col + dc;
@@ -475,6 +639,10 @@ private:
             return;
         }
 
+        bool pushed = false;
+        int boulderToRow = 0;
+        int boulderToCol = 0;
+
         if (tile == "B")
         {
             if (stage != 0)
@@ -497,6 +665,10 @@ private:
 
             grid.tiles[br][bc] = "B";
             grid.tiles[nr][nc] = ".";
+
+            pushed = true;
+            boulderToRow = br;
+            boulderToCol = bc;
         }
 
         row = nr;
@@ -504,37 +676,79 @@ private:
 
         updatePosition();
         collectItem(tile, row, col);
+
+        if (lives == oldLives && row == nr && col == nc)
+        {
+            saveMove(oldStage, oldRow, oldCol,
+                     pushed, nr, nc,
+                     boulderToRow, boulderToCol);
+        }
     }
 
-    // Wait for a complete line. The timeout allows Splash's timer
-    // to keep running while the player is deciding what to enter.
-    bool readCommand(string& command)
+    // Sprinty's two-tile jump.
+    // The intermediate tile is skipped completely.
+    void moveSprintyJump(int dr, int dc)
     {
-        fd_set inputSet;
-        FD_ZERO(&inputSet);
-        FD_SET(STDIN_FILENO, &inputSet);
+        faceRow = dr;
+        faceCol = dc;
 
-        timeval timeout;
-        timeout.tv_sec = 0;
-        timeout.tv_usec = 100000;
+        int oldRow = row;
+        int oldCol = col;
+        int oldStage = stage;
+        int oldLives = lives;
 
-        int result = select(
-            STDIN_FILENO + 1,
-            &inputSet,
-            nullptr,
-            nullptr,
-            &timeout
-        );
+        int nr = row + 2 * dr;
+        int nc = col + 2 * dc;
 
-        if (result > 0)
+        if (nr < 0 || nr >= ROWS ||
+            nc < 0 || nc >= COLS ||
+            !insideCurrentArea(nr, nc))
         {
-            if (!getline(cin, command))
-                return false;
-
-            return true;
+            message = "Sprinty cannot jump outside this puzzle area.";
+            return;
         }
 
-        return false;
+        string tile = grid.tiles[nr][nc];
+
+        if (isWall(tile))
+        {
+            message = "Sprinty cannot land on a wall.";
+            return;
+        }
+
+        if (tile == "E")
+        {
+            message = "Sprinty is facing the exit. Type E and press Enter.";
+            return;
+        }
+
+        if (tile == "B")
+        {
+            message = "Sprinty cannot push boulders.";
+            return;
+        }
+
+        row = nr;
+        col = nc;
+
+        updatePosition();
+        collectItem(tile, row, col);
+
+        if (lives == oldLives && row == nr && col == nc)
+        {
+            saveMove(oldStage, oldRow, oldCol);
+
+            if (tile == ".")
+                message = "Sprinty jumped two tiles!";
+        }
+    }
+
+    bool readCommand(string& command)
+    {
+        if (!getline(cin, command))
+            return false;
+
+        return true;
     }
 
     void displayLegend()
@@ -554,6 +768,7 @@ private:
     void displayGrid()
     {
         cout << "\n";
+        displayLegend();
 
         for (int r = 0; r < ROWS; r++)
         {
@@ -643,7 +858,7 @@ private:
                     steady_clock::now() - revealStart
                 ).count();
 
-                int remaining = 15 - static_cast<int>(elapsed);
+                int remaining = 5 - static_cast<int>(elapsed);
 
                 if (remaining < 0)
                     remaining = 0;
@@ -653,27 +868,33 @@ private:
             }
         }
 
-        displayLegend();
+        displayInventory();
+
+        cout << "Moves available to undo: " << undoStack.size() << '\n';
 
         if (codeInputMode)
             cout << "\nEnter code (123), then press Enter.\n";
         else
             cout << "\nEnter a command and press Enter.\n"
-                 << "Examples: D | D 2 | W | E | Q\n";
+                 << "Examples: D | DD | D 2 | UNDO | E | Q\n";
 
         cout << "Message: " << message << '\n';
     }
 
 public:
-    Level3()
+    Level3() : grid(), inventoryHead(nullptr)
     {
         initialize();
+    }
+
+    ~Level3()
+    {
+        clearInventory();
     }
 
     void run()
     {
         bool redraw = true;
-        int previousRemaining = -1;
 
         while (!gameOver && !gameWon)
         {
@@ -683,22 +904,11 @@ public:
                     steady_clock::now() - revealStart
                 ).count();
 
-                if (elapsed >= 15.0)
+                if (elapsed >= 5.0)
                 {
                     gridRevealed = false;
                     message = "Time is up! Splash's map is hidden again.";
-                    previousRemaining = -1;
                     redraw = true;
-                }
-                else
-                {
-                    int remaining = 15 - static_cast<int>(elapsed);
-
-                    if (remaining != previousRemaining)
-                    {
-                        previousRemaining = remaining;
-                        redraw = true;
-                    }
                 }
             }
 
@@ -713,7 +923,7 @@ public:
             string command;
 
             if (!readCommand(command))
-                continue;
+                break;
 
             stringstream input(command);
             string action;
@@ -725,9 +935,11 @@ public:
                 continue;
 
             for (char& ch : action)
+            {
                 ch = static_cast<char>(
                     toupper(static_cast<unsigned char>(ch))
                 );
+            }
 
             if (codeInputMode)
             {
@@ -752,6 +964,13 @@ public:
                 break;
             }
 
+            if (action == "UNDO")
+            {
+                undoMove();
+                redraw = true;
+                continue;
+            }
+
             if (action == "E")
             {
                 interact();
@@ -759,57 +978,65 @@ public:
                 continue;
             }
 
-            if (action == "W" || action == "A" ||
-                action == "S" || action == "D")
-            {
-                if (input >> steps)
-                {
-                    if (steps < 1)
-                        steps = 1;
+            int dr = 0;
+            int dc = 0;
+            bool validDirection = true;
 
-                    if (steps > 20)
-                        steps = 20;
-                }
-
-                int dr = 0;
-                int dc = 0;
-
-                if (action == "W")
-                    dr = -1;
-                else if (action == "S")
-                    dr = 1;
-                else if (action == "A")
-                    dc = -1;
-                else if (action == "D")
-                    dc = 1;
-
-                for (int i = 0; i < steps; i++)
-                {
-                    int oldRow = row;
-                    int oldCol = col;
-                    int oldLives = lives;
-                    int oldStage = stage;
-
-                    movePlayer(dr, dc);
-
-                    // Stop if movement is blocked, a life is lost,
-                    // or the player changes puzzle.
-                    if (row == oldRow && col == oldCol)
-                        break;
-
-                    if (lives != oldLives ||
-                        stage != oldStage ||
-                        gameOver || gameWon)
-                        break;
-                }
-
-                redraw = true;
-            }
+            if (action == "W" || action == "WW")
+                dr = -1;
+            else if (action == "S" || action == "SS")
+                dr = 1;
+            else if (action == "A" || action == "AA")
+                dc = -1;
+            else if (action == "D" || action == "DD")
+                dc = 1;
             else
+                validDirection = false;
+
+            if (!validDirection)
             {
-                message = "Invalid command. Use W, A, S, D, E or Q.";
+                message = "Invalid command. Use W, A, S, D, DD, UNDO, E or Q.";
                 redraw = true;
+                continue;
             }
+
+            if (action.length() == 2)
+                steps = 2;
+            else if (input >> steps)
+            {
+                if (steps < 1)
+                    steps = 1;
+
+                if (steps > 20)
+                    steps = 20;
+            }
+
+            // Sprinty's jump skips the intermediate tile.
+            if (stage == 1 && steps >= 2)
+            {
+                moveSprintyJump(dr, dc);
+                steps -= 2;
+            }
+
+            for (int i = 0; i < steps; i++)
+            {
+                int oldRow = row;
+                int oldCol = col;
+                int oldLives = lives;
+                int oldStage = stage;
+
+                movePlayer(dr, dc);
+
+                if (row == oldRow && col == oldCol)
+                    break;
+
+                if (lives != oldLives ||
+                    stage != oldStage ||
+                    gameOver || gameWon)
+                    break;
+            }
+
+            redraw = true;
         }
 
         cout << "\033[2J\033[H";
@@ -846,7 +1073,8 @@ void level3Intro()
 
     cout << "\nEnter a command, then press Enter:\n";
     cout << "W = Up, S = Down, A = Left, D = Right\n";
-    cout << "D 2 = Move right up to two tiles\n";
+    cout << "DD or D 2 = Sprinty jumps two tiles\n";
+    cout << "UNDO = Undo the latest successful move\n";
     cout << "E = Interact\n";
     cout << "Q = Quit Level 3\n";
 }
