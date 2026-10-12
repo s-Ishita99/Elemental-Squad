@@ -3,6 +3,7 @@
 #include "Rocky.h"
 #include "Sprinty.h"
 #include <string>
+#include <cstdlib>
 
 using namespace std;
 
@@ -17,6 +18,7 @@ enum Screen
     LEVEL2_COMPLETE,
     LEVEL2_PLACEHOLDER,
     LEVEL3_PLACEHOLDER,
+    LEVEL3_GAME,
     GAME_COMPLETE
 };
 
@@ -160,6 +162,43 @@ int main()
 
     string l2Status = "Find the potion, then light the torch.";
 
+    // LEVEL 3 GRAPHICAL STATE (Sprinty's trial)
+    const int l3Rows = 5, l3Cols = 7;
+    char l3Map[l3Rows][l3Cols] = {
+        {'#','#','#','#','#','#','#'},
+        {'#','#','#','.','.','B','#'},
+        {'.','B','.','B','S','.','#'},
+        {'B','S','.','.','.','.','#'},
+        {'#','.','E','#','#','#','#'}
+    };
+    int l3Row = 2, l3Col = 0;
+    int l3Lives = 3;
+    int l3FacingRow = 0, l3FacingCol = 1;
+    char l3PendingDirection = '\0';
+    bool l3Won = false;
+    bool l3GameOver = false;
+    bool l3ShowGuide = true;
+    string l3Status = "Use W/A/S/D to choose a direction.";
+
+    auto resetLevel3 = [&]()
+    {
+        char freshMap[l3Rows][l3Cols] = {
+            {'#','#','#','#','#','#','#'},
+            {'#','#','#','.','.','B','#'},
+            {'.','B','.','B','S','.','#'},
+            {'B','S','.','.','.','.','#'},
+            {'#','.','E','#','#','#','#'}
+        };
+        for (int r=0; r<l3Rows; r++)
+            for (int c=0; c<l3Cols; c++) l3Map[r][c] = freshMap[r][c];
+        l3Row=2; l3Col=0; l3Lives=3; l3PendingDirection='\0';
+        l3Won=false; l3GameOver=false;
+        l3FacingRow=0; l3FacingCol=1;
+        l3Status="Use W/A/S/D to choose a direction.";
+        l3ShowGuide=true;
+        screen=LEVEL3_GAME;
+    };
+
     auto resetLevel2 = [&]()
     {
         char freshMap[L2ROWS][L2COLS] =
@@ -214,6 +253,8 @@ int main()
     Rectangle level2Button = {250, 360, 500, 58};
     Rectangle level3Button = {250, 435, 500, 58};
     Rectangle backButton = {35, 35, 125, 45};
+    bool showLevel1Info = false;
+    bool showLevel2Info = false;
 
     Rectangle replayButton = {100, 445, 235, 58};
     Rectangle selectButton = {382, 445, 235, 58};
@@ -395,6 +436,13 @@ int main()
     {
         Vector2 mouse = GetMousePosition();
 
+        // Toggle the guide for the currently active level.
+        if (screen == LEVEL1_GAME && IsKeyPressed(KEY_H))
+            showLevel1Info = !showLevel1Info;
+
+        if (screen == LEVEL2_GAME && IsKeyPressed(KEY_H))
+            showLevel2Info = !showLevel2Info;
+
         // LEVEL 1 INPUT
         if (screen == LEVEL1_GAME && !levelWon)
         {
@@ -411,7 +459,18 @@ int main()
 
             if (direction != '\0')
             {
-                bool moved = grid.moveCharacter(*current, direction);
+                // Extra wall at row 10, column 4 (zero-based: row 9, column 3).
+                int targetX = current->getX();
+                int targetY = current->getY();
+                if (direction == 'w') targetY--;
+                else if (direction == 's') targetY++;
+                else if (direction == 'a') targetX--;
+                else if (direction == 'd') targetX++;
+
+                bool extraWall = (targetY == 9 && targetX == 3);
+                bool moved = false;
+                if (!extraWall)
+                    moved = grid.moveCharacter(*current, direction);
 
                 if (moved)
                 {
@@ -645,6 +704,46 @@ int main()
         if (screen == LEVEL2_GAME && l2GameOver)
             screen = LEVEL2_PLACEHOLDER;
 
+        // LEVEL 3 GRAPHICAL INPUT: choose direction, then one or two cells.
+        if (screen == LEVEL3_GAME && !l3ShowGuide && !l3Won && !l3GameOver)
+        {
+            if (IsKeyPressed(KEY_ESCAPE) || IsKeyPressed(KEY_Q))
+            {
+                screen = LEVEL_SELECT;
+                l3PendingDirection = '\0';
+            }
+            else if (l3PendingDirection == '\0')
+            {
+                if (IsKeyPressed(KEY_W)) { l3PendingDirection='w'; l3FacingRow=-1; l3FacingCol=0; }
+                else if (IsKeyPressed(KEY_S)) { l3PendingDirection='s'; l3FacingRow=1; l3FacingCol=0; }
+                else if (IsKeyPressed(KEY_A)) { l3PendingDirection='a'; l3FacingRow=0; l3FacingCol=-1; }
+                else if (IsKeyPressed(KEY_D)) { l3PendingDirection='d'; l3FacingRow=0; l3FacingCol=1; }
+                if (l3PendingDirection != '\0') l3Status = "Direction selected. Press 1 or 2.";
+            }
+            else
+            {
+                int steps=0;
+                if (IsKeyPressed(KEY_ONE) || IsKeyPressed(KEY_KP_1)) steps=1;
+                else if (IsKeyPressed(KEY_TWO) || IsKeyPressed(KEY_KP_2)) steps=2;
+                if (steps)
+                {
+                    int nr=l3Row+l3FacingRow*steps, nc=l3Col+l3FacingCol*steps;
+                    if (nr<0 || nr>=l3Rows || nc<0 || nc>=l3Cols) l3Status="That move is outside the grid.";
+                    else if (l3Map[nr][nc]=='#') l3Status="A wall blocks the landing cell.";
+                    else if (l3Map[nr][nc]=='B') l3Status="Sprinty cannot push a boulder.";
+                    else if (l3Map[nr][nc]=='E') { l3Row=nr; l3Col=nc; l3Won=true; l3Status="Exit reached! Level 3 trial complete."; }
+                    else if (l3Map[nr][nc]=='S')
+                    {
+                        l3Map[nr][nc]='.'; l3Lives--;
+                        if (l3Lives<=0) { l3GameOver=true; l3Status="Game over! Sprinty ran out of lives."; }
+                        else { l3Row=2; l3Col=0; l3Status="Bomb! Lost one life and returned to start."; }
+                    }
+                    else { l3Row=nr; l3Col=nc; l3Status=(steps==1 ? "Moved one block." : "Jumped two blocks."); }
+                    l3PendingDirection='\0';
+                }
+            }
+        }
+
         // DRAW
         BeginDrawing();
         ClearBackground(background);
@@ -720,6 +819,9 @@ int main()
                 for (int col = 0; col < 14; col++)
                 {
                     int tile = grid.getTile(row, col);
+                    // Render the added walls at row 10, column 4 and row 9, column 8.
+                    if ((row == 9 && col == 3) || (row == 8 && col == 7))
+                        tile = 1;
                     int x = gridX + col * tileSize;
                     int y = gridY + row * tileSize;
                     int size = tileSize - 2;
@@ -771,14 +873,58 @@ int main()
             else
                 drawSprinty(heroX, heroY, 0.65f);
 
+            if (showLevel1Info)
+            {
+                DrawRectangleRounded(
+                    {250, 165, 500, 330}, 0.08f, 8,
+                    {27, 31, 57, 250}
+                );
+                DrawRectangleLinesEx({250, 165, 500, 330}, 2, gold);
+
+                centeredText("LEVEL 1 GUIDE", 500, 178, 25, gold);
+                drawText("ROCKY - Strong; can push boulders", 275, 215, 16,
+                         {181, 218, 164, 255});
+                drawText("SPRINTY - Fast character", 275, 240, 16,
+                         {220, 205, 255, 255});
+
+                // Draw visual symbols so the guide matches the game tiles.
+                DrawRectangle(278, 275, 18, 18, {85, 82, 96, 255});
+                DrawRectangleLines(278, 275, 18, 18, {170, 165, 180, 255});
+                drawText("Wall - Blocks movement", 310, 275, 15, RAYWHITE);
+
+                DrawCircle(287, 312, 9, {128, 132, 143, 255});
+                DrawCircle(284, 309, 3, {180, 183, 190, 255});
+                drawText("Boulder - Rocky can push it", 310, 302, 15, RAYWHITE);
+
+                // Match the line-like gap symbol used on the Level 1 map.
+                DrawRectangle(278, 332, 18, 16, {5, 8, 20, 255});
+                DrawLine(281, 336, 293, 336, {76, 94, 126, 255});
+                DrawLine(281, 340, 293, 340, {76, 94, 126, 255});
+                DrawLine(281, 344, 293, 344, {76, 94, 126, 255});
+                DrawRectangleLines(278, 332, 18, 16, {48, 57, 81, 255});
+                drawText("Gap - Cross carefully", 310, 330, 15, RAYWHITE);
+
+                DrawCircle(283, 369, 5, gold);
+                DrawRectangle(286, 367, 13, 4, gold);
+                DrawRectangle(294, 367, 3, 8, gold);
+                drawText("Key - Collect before exiting", 310, 358, 15, RAYWHITE);
+
+                DrawRectangleLinesEx({278, 388, 18, 20}, 2, {112, 210, 151, 255});
+                DrawRectangle(283, 395, 8, 13, {112, 210, 151, 255});
+                DrawCircle(287, 397, 2, {27, 31, 57, 255});
+                drawText("Exit - Reach after collecting key", 310, 387, 15, RAYWHITE);
+
+                centeredText("Press H to close the guide", 500, 455, 16, gold);
+            }
+
             DrawRectangleRounded({160, 548, 680, 78}, 0.12f, 8,
                                  {27, 31, 57, 255});
             DrawRectangleLinesEx({160, 548, 680, 78}, 1, gold);
 
             centeredText("W A S D: MOVE    1: ROCKY    2: SPRINTY",
                          500, 558, 17, RAYWHITE);
-            centeredText("E: ABILITY    R: RESTART    Q / ESC: MENU",
-                         500, 581, 15, paleText);
+            centeredText("E: ABILITY    H: GUIDE    R: RESTART    Q / ESC: MENU",
+                         500, 581, 13, paleText);
             centeredText(status.c_str(), 500, 605, 14,
                          levelWon ? GREEN : gold);
         }
@@ -882,17 +1028,27 @@ int main()
                     }
                     else if (tile == 'F')
                     {
-                        DrawCircle(x + 19, y + 23, 10, {183, 57, 34, 255});
+                        // A more recognizable flame silhouette instead of an orange dot.
                         DrawTriangle(
-                            {(float)x + 10, (float)y + 25},
-                            {(float)x + 19, (float)y + 4},
-                            {(float)x + 27, (float)y + 25},
-                            {255, 139, 45, 255});
+                            {(float)x + 19, (float)y + 3},
+                            {(float)x + 7, (float)y + 25},
+                            {(float)x + 12, (float)y + 31},
+                            {190, 48, 30, 255});
                         DrawTriangle(
-                            {(float)x + 15, (float)y + 24},
-                            {(float)x + 20, (float)y + 12},
-                            {(float)x + 24, (float)y + 24},
-                            {255, 221, 112, 255});
+                            {(float)x + 19, (float)y + 7},
+                            {(float)x + 31, (float)y + 25},
+                            {(float)x + 26, (float)y + 31},
+                            {190, 48, 30, 255});
+                        DrawTriangle(
+                            {(float)x + 19, (float)y + 10},
+                            {(float)x + 9, (float)y + 28},
+                            {(float)x + 29, (float)y + 28},
+                            {255, 119, 35, 255});
+                        DrawTriangle(
+                            {(float)x + 20, (float)y + 19},
+                            {(float)x + 15, (float)y + 30},
+                            {(float)x + 25, (float)y + 30},
+                            {255, 230, 125, 255});
                     }
                     else if (tile == 'P')
                     {
@@ -970,14 +1126,67 @@ int main()
             else
                 drawSplash(hx, hy, 0.78f);
 
+            if (showLevel2Info)
+            {
+                DrawRectangleRounded(
+                    {225, 145, 550, 355}, 0.08f, 8,
+                    {27, 31, 57, 250}
+                );
+                DrawRectangleLinesEx({225, 145, 550, 355}, 2, gold);
+
+                centeredText("LEVEL 2 GUIDE - THE DARK CAVE",
+                             500, 160, 22, gold);
+                drawText("BLAZE - Melts ice; collects potion", 250, 198, 15,
+                         {255, 180, 125, 255});
+                drawText("SPLASH - Can cross water", 250, 222, 15,
+                         {160, 235, 218, 255});
+                // Visual symbols replace the letter codes in the guide.
+                DrawRectangle(252, 258, 18, 18, {85, 82, 96, 255});
+                DrawRectangleLines(252, 258, 18, 18, {145, 139, 157, 255});
+                drawText("Wall - Blocks movement", 282, 258, 15, RAYWHITE);
+
+                DrawTriangle({261, 282}, {251, 300}, {271, 300}, {255, 126, 43, 255});
+                DrawTriangle({261, 289}, {255, 299}, {267, 299}, {255, 226, 116, 255});
+                drawText("Fire - Dangerous to Blaze", 282, 283, 15, RAYWHITE);
+
+                DrawEllipse(261, 321, 11, 7, {31, 137, 190, 255});
+                DrawLine(253, 319, 260, 316, {137, 230, 246, 255});
+                DrawLine(262, 325, 269, 322, {137, 230, 246, 255});
+                drawText("Water - Blocks Blaze", 282, 308, 15, RAYWHITE);
+
+                DrawRectangle(252, 333, 18, 18, {139, 213, 239, 255});
+                DrawLine(254, 336, 267, 348, RAYWHITE);
+                DrawLine(267, 335, 258, 349, RAYWHITE);
+                drawText("Ice - Blaze can melt it", 282, 333, 15, RAYWHITE);
+
+                DrawRectangleRounded({254, 359, 14, 18}, 0.2f, 4, {126, 185, 96, 255});
+                DrawRectangle(257, 355, 8, 5, {198, 208, 171, 255});
+                DrawCircle(261, 368, 3, {224, 246, 170, 255});
+                drawText("Potion - Collect with Blaze", 282, 358, 15, RAYWHITE);
+
+                DrawLineEx({261, 405}, {261, 386}, 3, {121, 73, 43, 255});
+                DrawTriangle({261, 390}, {254, 400}, {268, 400}, {255, 157, 54, 255});
+                drawText("Torch - Light after potion", 282, 383, 15, RAYWHITE);
+
+                DrawRectangle(252, 408, 18, 18, {35, 29, 30, 255});
+                DrawRectangleLines(252, 408, 18, 18, {255, 175, 82, 255});
+                drawText("Gate - Opens after torch is lit", 282, 408, 15, RAYWHITE);
+
+                DrawRectangle(254, 433, 14, 18, {29, 95, 77, 255});
+                DrawRectangleLines(254, 433, 14, 18, {145, 197, 163, 255});
+                DrawCircle(265, 442, 1.5f, gold);
+                drawText("Exit - Reach after lighting torch", 282, 433, 15, RAYWHITE);
+                centeredText("Press H to close the guide", 500, 470, 15, gold);
+            }
+
             DrawRectangleRounded({125, 525, 750, 94},
                                  0.12f, 8, {27, 31, 57, 255});
             DrawRectangleLinesEx({125, 525, 750, 94}, 1, gold);
 
             centeredText("W A S D: MOVE     1: BLAZE     2: SPLASH",
                          500, 535, 16, RAYWHITE);
-            centeredText("E: INTERACT     R: RESTART     Q / ESC: LEVEL SELECT",
-                         500, 558, 14, paleText);
+            centeredText("E: INTERACT    H: GUIDE    R: RESTART    Q / ESC: LEVEL SELECT",
+                         500, 558, 12, paleText);
             centeredText(l2Status.c_str(), 500, 584, 14,
                          l2TorchLit ? Color{255, 190, 106, 255} : gold);
         }
@@ -1010,12 +1219,55 @@ int main()
         {
             centeredText("LEVEL 3", 500, 155, 48, gold);
             centeredText("THE FOUR TRIALS", 500, 215, 30, paleText);
-            centeredText("This level still needs to be connected",
-                         500, 290, 21, RAYWHITE);
-            centeredText("to the graphical game.", 500, 323, 21, paleText);
-
+            centeredText("Play Sprinty's graphical trial", 500, 290, 21, RAYWHITE);
             button(backButton, "< BACK", purple, 18);
-            button({350, 410, 300, 58}, "LEVEL SELECT", blue, 20);
+            button({350, 410, 300, 58}, "START LEVEL 3", blue, 20);
+        }
+        else if (screen == LEVEL3_GAME)
+        {
+            centeredText("LEVEL 3", 500, 22, 32, gold);
+            if (l3ShowGuide)
+            {
+                centeredText("CHARACTERS & SYMBOL GUIDE", 500, 82, 26, gold);
+                DrawText("1  ROCKY    - strength / boulder pushing", 100, 130, 18, RAYWHITE);
+                DrawText("2  SPRINTY  - speed / jump 1 or 2 blocks", 100, 162, 18, RAYWHITE);
+                DrawText("3  SPLASH   - water abilities", 100, 194, 18, RAYWHITE);
+                DrawText("4  BLAZE    - fire / torch abilities", 100, 226, 18, RAYWHITE);
+                DrawText("# Wall   B Boulder   ! Bomb   SW Switch", 100, 280, 18, paleText);
+                DrawText("C# Coded wall   0 Pit   K Key   P Potion", 100, 312, 18, paleText);
+                DrawText("T Torch   E Exit   . Empty floor", 100, 344, 18, paleText);
+                button({350, 430, 300, 58}, "CONTINUE", blue, 20);
+                button(backButton, "< BACK", purple, 18);
+            }
+            else
+            {
+                drawText(TextFormat("Lives: %d", l3Lives), 45, 55, 18, paleText);
+                drawText("Move: W A S D", 45, 82, 17, paleText);
+                drawText(l3PendingDirection!='\0' ? "Now press 1 or 2" : "Choose direction, then distance", 45, 106, 17, gold);
+                const int t=66, gx=269, gy=145;
+                for (int r=0; r<l3Rows; r++) for (int c=0; c<l3Cols; c++)
+                {
+                    int x=gx+c*t, y=gy+r*t; char tile=l3Map[r][c];
+                    DrawRectangle(x,y,t-4,t-4,{23,29,53,255});
+                    DrawRectangleLines(x,y,t-4,t-4,{57,67,99,255});
+                    if(tile=='#') { DrawRectangle(x+3,y+3,t-10,t-10,{70,75,97,255}); DrawRectangleLines(x+3,y+3,t-10,t-10,{106,111,132,255}); }
+                    else if(tile=='B') { DrawCircle(x+t/2-2,y+t/2-2,17,{176,94,83,255}); DrawCircleLines(x+t/2-2,y+t/2-2,17,{237,157,130,255}); }
+                    else if(tile=='S') { DrawCircle(x+t/2-2,y+t/2-2,16,{225,76,76,255}); DrawText("!",x+t/2-8,y+t/2-15,28,RAYWHITE); }
+                    else if(tile=='E') { DrawRectangle(x+11,y+8,t-26,t-15,{65,147,103,255}); DrawRectangleLines(x+11,y+8,t-26,t-15,LIME); }
+                    if(r==l3Row && c==l3Col) drawSprinty(x+t/2-2,y+t/2+8,1.05f);
+                }
+                DrawRectangleRounded({80,505,840,104},0.08f,8,{27,31,57,255});
+                DrawRectangleLinesEx({80,505,840,104},1,gold);
+                centeredText(l3Status.c_str(),500,520,18,RAYWHITE);
+                centeredText(l3PendingDirection!='\0' ? "Press 1 or 2 to confirm" : "W/A/S/D: direction   Q/ESC: level select",500,555,16,gold);
+                if (l3Won || l3GameOver)
+                {
+                    DrawRectangleRounded({260,235,480,125},0.12f,8,{18,20,48,245});
+                    DrawRectangleLinesEx({260,235,480,125},2,gold);
+                    centeredText(l3Won ? "TRIAL COMPLETE!" : "GAME OVER",500,255,29,gold);
+                    button({350,305,300,45},"RETRY LEVEL 3",blue,17);
+                }
+            }
         }
         else if (screen == GAME_COMPLETE)
         {
@@ -1050,7 +1302,13 @@ int main()
                 else if (CheckCollisionPointRec(mouse, level2Button))
                     resetLevel2();
                 else if (CheckCollisionPointRec(mouse, level3Button))
-                    screen = LEVEL3_PLACEHOLDER;
+                {
+                    // Launch the newer standalone four-character Level 3.
+                    // Build level3_graphics in this same project folder first.
+                    int result = system("./level3_graphics");
+                    (void)result;
+                    screen = LEVEL_SELECT;
+                }
             }
             else if (screen == HOW_TO_PLAY)
             {
@@ -1081,9 +1339,21 @@ int main()
             }
             else if (screen == LEVEL3_PLACEHOLDER)
             {
-                if (CheckCollisionPointRec(mouse, backButton) ||
-                    CheckCollisionPointRec(mouse, {350, 410, 300, 58}))
-                    screen = LEVEL_SELECT;
+                if (CheckCollisionPointRec(mouse, backButton)) screen = LEVEL_SELECT;
+                else if (CheckCollisionPointRec(mouse, {350, 410, 300, 58})) resetLevel3();
+            }
+            else if (screen == LEVEL3_GAME && l3ShowGuide)
+            {
+                if (CheckCollisionPointRec(mouse, backButton)) screen = LEVEL_SELECT;
+                else if (CheckCollisionPointRec(mouse, {350,430,300,58}))
+                {
+                    l3ShowGuide = false;
+                    l3Status = "Use W/A/S/D to choose a direction.";
+                }
+            }
+            else if (screen == LEVEL3_GAME && (l3Won || l3GameOver))
+            {
+                if (CheckCollisionPointRec(mouse, {350,305,300,45})) resetLevel3();
             }
             else if (screen == GAME_COMPLETE)
             {
