@@ -1,4 +1,4 @@
-#include "Raylib.h"
+#include "raylib.h"
 #include <string>
 #include <stack>
 #include <cstring>
