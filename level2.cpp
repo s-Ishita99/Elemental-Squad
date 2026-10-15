@@ -3,12 +3,9 @@
 #include "grid2.h"
 using namespace std;
 
-extern char grid2[ROWS][COLS];
-
 int playerRow, playerCol;
 int lives;
 char currentCharacter;
-
 bool hasPotion;
 bool torchLit;
 bool gameOver;
@@ -21,7 +18,6 @@ void displayGrid()
          << (currentCharacter == 'C' ? "Blaze" : "Splash");
     cout << "\nPotion: " << (hasPotion ? "Collected" : "Not collected");
     cout << "\nTorch: " << (torchLit ? "Lit" : "Unlit");
-
     cout << "\n\n";
 
     for (int i = 0; i < ROWS; i++)
@@ -30,8 +26,6 @@ void displayGrid()
         {
             if (i == playerRow && j == playerCol)
                 cout << currentCharacter << ' ';
-            else if (grid2[i][j] == 'P' && hasPotion)
-                cout << ". ";
             else
                 cout << grid2[i][j] << ' ';
         }
@@ -54,7 +48,7 @@ void interact()
         }
         else
         {
-            cout << "\nSplash cannot collect the potion. Switch to Blaze!\n";
+            cout << "\nBlaze must collect the potion!\n";
         }
     }
     else if (grid2[playerRow][playerCol] == 'T')
@@ -65,13 +59,12 @@ void interact()
         }
         else if (!hasPotion)
         {
-            cout << "\nBlaze needs the potion before lighting the torch!\n";
+            cout << "\nCollect the potion first!\n";
         }
         else if (!torchLit)
         {
             torchLit = true;
-            cout << "\nBlaze used the potion and lit the torch!\n";
-            cout << "The cave can now be explored.\n";
+            cout << "\nTorch lit! The cave is now accessible.\n";
         }
         else
         {
@@ -98,19 +91,28 @@ void movePlayer(int dr, int dc)
         return;
     }
 
-    if (grid2[nr][nc] == 'W' && currentCharacter == 'C')
+    // Cave markers block entry only while the torch is unlit.
+    if (!torchLit && grid2[nr][nc] == 'V')
     {
-        lives--;
-        cout << "\nBlaze cannot cross water! One life lost.\n";
-
-        if (lives <= 0)
-        {
-            gameOver = true;
-            cout << "\nGAME OVER!\n";
-        }
+        cout << "\nThe cave is too dark! Light the torch first.\n";
         return;
     }
 
+    // Splash can pass through fire. Blaze cannot.
+    if (grid2[nr][nc] == 'F' && currentCharacter == 'C')
+    {
+        cout << "\nBlaze cannot pass through fire!\n";
+        return;
+    }
+
+    // Splash can pass through water. Blaze cannot.
+    if (grid2[nr][nc] == 'W' && currentCharacter == 'C')
+    {
+        cout << "\nBlaze cannot pass through water!\n";
+        return;
+    }
+
+    // Blaze handles ice; Splash loses a life on ice.
     if (grid2[nr][nc] == 'I')
     {
         if (currentCharacter == 'C')
@@ -121,17 +123,17 @@ void movePlayer(int dr, int dc)
         else
         {
             lives--;
-            cout << "\nSplash cannot cross the ice! One life lost.\n";
+            cout << "\nSplash slipped on the ice! Lives left: "
+                 << lives << '\n';
 
             if (lives <= 0)
-            {
                 gameOver = true;
-                cout << "\nGAME OVER!\n";
-            }
+
             return;
         }
     }
 
+    // Exit is usable only after lighting the torch.
     if (grid2[nr][nc] == 'E')
     {
         if (torchLit)
@@ -139,24 +141,33 @@ void movePlayer(int dr, int dc)
             playerRow = nr;
             playerCol = nc;
             levelWon = true;
-            cout << "\nCongratulations! You completed Level 2!\n";
+            cout << "\nLevel 2 completed!\n";
         }
         else
         {
-            cout << "\nThe exit is still locked. Light the torch first!\n";
+            cout << "\nThe exit is locked! Light the torch first.\n";
         }
+
         return;
     }
 
     playerRow = nr;
     playerCol = nc;
+
+    // Blaze automatically collects the potion.
+    if (grid2[playerRow][playerCol] == 'P' &&
+        currentCharacter == 'C')
+    {
+        hasPotion = true;
+        grid2[playerRow][playerCol] = '.';
+        cout << "\nBlaze collected the potion!\n";
+    }
 }
 
 bool level2Start()
 {
     playerRow = 0;
     playerCol = 0;
-
     lives = 3;
     currentCharacter = 'C';
 
@@ -174,38 +185,28 @@ bool level2Start()
         cout << "\nEnter move or action: ";
         cin >> choice;
 
-        if (choice == 'q' || choice == 'Q')
-            break;
-
-        if (choice == '1')
-        {
-            currentCharacter = 'C';
-            cout << "\nSwitched to Blaze.\n";
-        }
-        else if (choice == '2')
-        {
-            currentCharacter = 'S';
-            cout << "\nSwitched to Splash.\n";
-        }
-        else if (choice == 'e' || choice == 'E')
-        {
-            interact();
-        }
-        else if (choice == 'w' || choice == 'W')
-        {
+        if (choice == 'w' || choice == 'W')
             movePlayer(-1, 0);
-        }
         else if (choice == 's' || choice == 'S')
-        {
             movePlayer(1, 0);
-        }
         else if (choice == 'a' || choice == 'A')
-        {
             movePlayer(0, -1);
-        }
         else if (choice == 'd' || choice == 'D')
-        {
             movePlayer(0, 1);
+        else if (choice == '1')
+            currentCharacter = 'C';
+        else if (choice == '2')
+            currentCharacter = 'S';
+        else if (choice == 'e' || choice == 'E')
+            interact();
+        else if (choice == 'q' || choice == 'Q')
+        {
+            gameOver = true;
+            cout << "\nLeaving Level 2.\n";
+        }
+        else
+        {
+            cout << "\nInvalid input!\n";
         }
     }
 

@@ -5,7 +5,7 @@
 // Level 2: Blaze and Splash
 
 void level2Intro();
-void level2Start();
+bool level2Start();
 
 #endif
 
