@@ -9,6 +9,7 @@ using namespace std;
 
 enum Screen
 {
+    LOGIN,
     MENU,
     LEVEL_SELECT,
     HOW_TO_PLAY,
@@ -129,7 +130,16 @@ int main()
         customFontLoaded = true;
     }
 
-    Screen screen = MENU;
+    Screen screen = LOGIN;
+
+    // Login UI prototype only: account validation/storage will be added later.
+    string loginUsername = "";
+    string loginPassword = "";
+    bool passwordFieldActive = false;
+    string loginMessage = "Enter any username and password to continue.";
+    Rectangle usernameField = {330, 285, 340, 48};
+    Rectangle passwordField = {330, 350, 340, 48};
+    Rectangle loginButton = {390, 425, 220, 55};
 
     // LEVEL 1 STATE
     Rocky rocky;
@@ -435,6 +445,45 @@ int main()
     while (!WindowShouldClose())
     {
         Vector2 mouse = GetMousePosition();
+
+        // Login UI input. This is a visual prototype; credentials are not saved.
+        if (screen == LOGIN)
+        {
+            int key = GetCharPressed();
+            while (key > 0)
+            {
+                if (key >= 32 && key <= 125)
+                {
+                    if (passwordFieldActive)
+                    {
+                        if (loginPassword.length() < 24)
+                            loginPassword += (char)key;
+                    }
+                    else
+                    {
+                        if (loginUsername.length() < 24)
+                            loginUsername += (char)key;
+                    }
+                }
+                key = GetCharPressed();
+            }
+
+            if (IsKeyPressed(KEY_BACKSPACE))
+            {
+                if (passwordFieldActive && !loginPassword.empty())
+                    loginPassword.pop_back();
+                else if (!passwordFieldActive && !loginUsername.empty())
+                    loginUsername.pop_back();
+            }
+
+            if (IsKeyPressed(KEY_TAB))
+                passwordFieldActive = !passwordFieldActive;
+
+            if (IsKeyPressed(KEY_ENTER))
+            {
+                screen = MENU;
+            }
+        }
 
         // Toggle the guide for the currently active level.
         if (screen == LEVEL1_GAME && IsKeyPressed(KEY_H))
@@ -748,7 +797,38 @@ int main()
         BeginDrawing();
         ClearBackground(background);
 
-        if (screen == MENU)
+        if (screen == LOGIN)
+        {
+            centeredText("ELEMENTAL", 500, 82, 58, gold);
+            centeredText("SQUAD", 500, 142, 54, SKYBLUE);
+            centeredText("PLAYER LOGIN", 500, 215, 27, RAYWHITE);
+
+            DrawText("USERNAME", 330, 262, 17, paleText);
+            DrawRectangleRec(usernameField, {29, 34, 66, 255});
+            DrawRectangleLinesEx(usernameField, 2,
+                passwordFieldActive ? floorBorder : gold);
+            DrawText(loginUsername.c_str(), 345, 299, 21, RAYWHITE);
+            if (loginUsername.empty() && !passwordFieldActive)
+                DrawText("Type your username...", 345, 299, 18,
+                         {135, 143, 166, 255});
+
+            DrawText("PASSWORD", 330, 327, 17, paleText);
+            DrawRectangleRec(passwordField, {29, 34, 66, 255});
+            DrawRectangleLinesEx(passwordField, 2,
+                passwordFieldActive ? gold : floorBorder);
+            string hiddenPassword(loginPassword.length(), '*');
+            DrawText(hiddenPassword.c_str(), 345, 364, 21, RAYWHITE);
+            if (loginPassword.empty() && passwordFieldActive)
+                DrawText("Type your password...", 345, 364, 18,
+                         {135, 143, 166, 255});
+
+            button(loginButton, "CONTINUE", blue, 23);
+            centeredText("UI DEMO  |  ACCOUNT SAVING COMES LATER",
+                         500, 505, 15, paleText);
+            centeredText("Click a field to type. Press Enter to continue.",
+                         500, 545, 16, paleText);
+        }
+        else if (screen == MENU)
         {
             centeredText("ELEMENTAL", 500, 62, 65, gold);
             centeredText("SQUAD", 500, 130, 61, SKYBLUE);
@@ -1284,7 +1364,16 @@ int main()
         // BUTTON INPUT
         if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
         {
-            if (screen == MENU)
+            if (screen == LOGIN)
+            {
+                if (CheckCollisionPointRec(mouse, usernameField))
+                    passwordFieldActive = false;
+                else if (CheckCollisionPointRec(mouse, passwordField))
+                    passwordFieldActive = true;
+                else if (CheckCollisionPointRec(mouse, loginButton))
+                    screen = MENU;
+            }
+            else if (screen == MENU)
             {
                 if (CheckCollisionPointRec(mouse, startButton))
                     screen = LEVEL_SELECT;
