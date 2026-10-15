@@ -109,7 +109,8 @@ int main()
 {
     const int screenWidth = 1000;
     const int screenHeight = 650;
-
+    
+    SetConfigFlags(FLAG_FULLSCREEN_MODE);
     InitWindow(screenWidth, screenHeight, "Elemental Squad");
     SetTargetFPS(60);
 
