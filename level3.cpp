@@ -1,11 +1,11 @@
 
 #include <iostream>
 #include <string>
-#include <iomanip>
-#include <chrono>
-#include <cctype>
-#include <sstream>
-#include <stack>
+#include <iomanip>//allows to format the output in a grid-like structure
+#include <chrono>//time library to measure the time for the reveal feature
+#include <cctype>//uppercase/lowercase functions
+#include <sstream>//string stream to handle code input
+#include <stack>//stl stack to store previous moves for undo
 
 #include "level3.h"
 #include "grid3.h"
@@ -20,7 +20,7 @@ private:
     static const int COLS = 14;
 
     // STACK: stores previous player positions for undo.
-    struct MoveState
+    struct MoveState //why struct? because we want to group related data together
     {
         int stage;
         int row;
@@ -33,7 +33,7 @@ private:
         int boulderToCol;
     };
 
-    stack<MoveState> undoStack;
+    stack<MoveState> undoStack;//why stack? because we want to store the previous moves in a LIFO manner
 
     // LINKED LIST: stores collected inventory items.
     struct InventoryNode
@@ -60,7 +60,6 @@ private:
     int playerCols[4];
 
     int faceRow, faceCol;
-
     bool hasHammer;
     bool hasRockyKey;
     bool switchOpened;

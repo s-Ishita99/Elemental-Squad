@@ -115,7 +115,7 @@ bool Grid::moveCharacter(Character& character, char direction)
     int oldX = character.getX();
     int oldY = character.getY();
 
-    int newX = oldX;
+    int newX = oldX;//to check the validity of the new positionbefore moving
     int newY = oldY;
 
 
@@ -143,7 +143,7 @@ bool Grid::moveCharacter(Character& character, char direction)
     }
 
 
-    int tile = getTile(newY, newX);
+    int tile = getTile(newY, newX);//tile at the new position
 
 
     // Outside grid
@@ -179,7 +179,7 @@ bool Grid::moveCharacter(Character& character, char direction)
         }
 
 
-        int boulderNewX = newX;
+        int boulderNewX = newX;//boulder's position after being pushed
         int boulderNewY = newY;
 
 
@@ -202,7 +202,7 @@ bool Grid::moveCharacter(Character& character, char direction)
 
 
         int boulderDestination =
-            getTile(boulderNewY, boulderNewX);
+            getTile(boulderNewY, boulderNewX);//tile at the boulder's new position
 
 
         // Boulder cannot leave map
@@ -286,7 +286,7 @@ bool Grid::collectKey(Character& character)
     int y = character.getY();
 
 
-    if(level[y][x] == 4)
+    if(level[y][x] == 4)//y is row, x is col
     {
         level[y][x] = 0;
 
@@ -308,7 +308,7 @@ bool Grid::reachedExit(Character& character)
     int x = character.getX();
     int y = character.getY();
 
-    if(level[y][x] == 5)
+    if(level[y][x] == 5) //5 is the exit tile
     {
         return true;
     }
@@ -324,4 +324,5 @@ bool Grid::reachedExit(Character& character)
 void Grid::useAbility(Character& character)
 {
     character.useAbility();
+    //why call here? because we want to use the character's ability based on their position and the tile they are on
 }

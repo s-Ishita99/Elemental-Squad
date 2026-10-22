@@ -4,9 +4,7 @@
 using namespace std;
 
 Blaze::Blaze()
-    : Character("Blaze", "Fire", "Melt ice and light torches", 0, 0)
-{
-}
+    : Character("Blaze", "Fire", "Melt ice and light torches", 0, 0){}
 
 void Blaze::useAbility()
 {
