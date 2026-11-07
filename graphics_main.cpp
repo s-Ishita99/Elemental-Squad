@@ -253,6 +253,290 @@ static const Color HERO_COL[4]  = {{181, 218, 164, 255}, {220, 205, 255, 255},
                                    {255, 180, 125, 255}, {160, 235, 218, 255}};
 static const float HERO_SCALE[4] = {0.85f, 1.1f, 1.1f, 1.1f};
 static const float HERO_YOFF[4]  = {0.0f, 4.5f, 4.5f, 4.5f};
+// =================================================
+//             ELEMENTAL SQUAD UI THEME
+// =================================================
+
+// Colours
+const Color BG_DARK       = {15, 22, 38, 255};
+const Color PANEL_DARK    = {27, 40, 62, 255};
+const Color PANEL_LIGHT   = {39, 56, 82, 255};
+
+const Color ACCENT_BLUE   = {65, 170, 255, 255};
+const Color ACCENT_GOLD   = {255, 195, 75, 255};
+
+const Color TEXT_WHITE    = {245, 248, 255, 255};
+const Color TEXT_MUTED    = {170, 185, 205, 255};
+
+const Color SUCCESS_GREEN = {75, 205, 135, 255};
+const Color DANGER_RED    = {235, 85, 85, 255};
+
+// Fonts
+Font uiFont;
+Font titleFont;
+
+bool uiFontLoaded = false;
+bool titleFontLoaded = false;
+// =================================================
+//                  FONT FUNCTIONS
+// =================================================
+
+void loadGameFonts()
+{
+    uiFont = LoadFontEx(
+        "assets/DejaVuSans.ttf",
+        36,
+        NULL,
+        0
+    );
+
+    titleFont = LoadFontEx(
+        "assets/DejaVuSans.ttf",
+        64,
+        NULL,
+        0
+    );
+
+    uiFontLoaded = uiFont.texture.id != 0;
+    titleFontLoaded = titleFont.texture.id != 0;
+
+    if (!uiFontLoaded)
+        uiFont = GetFontDefault();
+
+    if (!titleFontLoaded)
+        titleFont = GetFontDefault();
+}
+
+void unloadGameFonts()
+{
+    if (uiFontLoaded)
+        UnloadFont(uiFont);
+
+    if (titleFontLoaded)
+        UnloadFont(titleFont);
+}
+// =================================================
+//                  TEXT FUNCTIONS
+// =================================================
+
+void drawStyledText(
+    const char *text,
+    float x,
+    float y,
+    float size,
+    Color color
+)
+{
+    Font font = uiFontLoaded
+        ? uiFont
+        : GetFontDefault();
+
+    DrawTextEx(
+        font,
+        text,
+        {x, y},
+        size,
+        2.0f,
+        color
+    );
+}
+
+void drawTitleText(
+    const char *text,
+    float x,
+    float y,
+    float size,
+    Color color
+)
+{
+    Font font = titleFontLoaded
+        ? titleFont
+        : GetFontDefault();
+
+    DrawTextEx(
+        font,
+        text,
+        {x, y},
+        size,
+        3.0f,
+        color
+    );
+}
+
+void drawCenteredText(
+    const char *text,
+    float centerX,
+    float y,
+    float size,
+    Color color
+)
+{
+    Font font = uiFontLoaded
+        ? uiFont
+        : GetFontDefault();
+
+    Vector2 textSize = MeasureTextEx(
+        font,
+        text,
+        size,
+        2.0f
+    );
+
+    drawStyledText(
+        text,
+        centerX - textSize.x / 2,
+        y,
+        size,
+        color
+    );
+}
+// =================================================
+//              BACKGROUND AND PANELS
+// =================================================
+
+void drawGameBackground()
+{
+    ClearBackground(BG_DARK);
+
+    DrawCircle(
+        1100, 100,
+        180,
+        Fade(ACCENT_BLUE, 0.06f)
+    );
+
+    DrawCircle(
+        120, 620,
+        220,
+        Fade(ACCENT_GOLD, 0.04f)
+    );
+
+    DrawRectangle(
+        0, 0,
+        1280, 5,
+        ACCENT_BLUE
+    );
+}
+
+void drawModernPanel(
+    float x,
+    float y,
+    float width,
+    float height,
+    Color background
+)
+{
+    Rectangle panel = {
+        x, y, width, height
+    };
+
+    DrawRectangleRounded(
+        panel,
+        0.12f,
+        12,
+        background
+    );
+
+    DrawRectangleRoundedLinesEx(
+        panel,
+        0.12f,
+        12,
+        2,
+        Fade(ACCENT_BLUE, 0.8f)
+    );
+}
+// =================================================
+//                  BUTTON FUNCTIONS
+// =================================================
+
+void drawModernButton(
+    const char *label,
+    Rectangle button,
+    Color buttonColor
+)
+{
+    Vector2 mouse = GetMousePosition();
+
+    bool hover = CheckCollisionPointRec(
+        mouse,
+        button
+    );
+
+    Color currentColor = hover
+        ? ACCENT_BLUE
+        : buttonColor;
+
+    DrawRectangleRounded(
+        button,
+        0.20f,
+        12,
+        currentColor
+    );
+
+    DrawRectangleRoundedLinesEx(
+        button,
+        0.20f,
+        12,
+        2,
+        ACCENT_GOLD
+    );
+
+    Font font = uiFontLoaded
+        ? uiFont
+        : GetFontDefault();
+
+    Vector2 textSize = MeasureTextEx(
+        font,
+        label,
+        22,
+        2.0f
+    );
+
+    float textX =
+        button.x + (button.width - textSize.x) / 2;
+
+    float textY =
+        button.y + (button.height - textSize.y) / 2;
+
+    drawStyledText(
+        label,
+        textX,
+        textY,
+        22,
+        TEXT_WHITE
+    );
+}
+
+void drawInfoCard(
+    const char *heading,
+    const char *description,
+    float x,
+    float y,
+    float width,
+    float height
+)
+{
+    drawModernPanel(
+        x, y,
+        width, height,
+        PANEL_DARK
+    );
+
+    drawStyledText(
+        heading,
+        x + 20,
+        y + 18,
+        23,
+        ACCENT_GOLD
+    );
+
+    drawStyledText(
+        description,
+        x + 20,
+        y + 58,
+        18,
+        TEXT_WHITE
+    );
+}
 
 static void (*drawHeroFn[4])(float, float, float) = {drawRocky, drawSprinty, drawBlaze, drawSplash};
 static void drawHeroAt(int p, float cx, float cy, float m)
@@ -1600,6 +1884,9 @@ static void update(float dt)
 // ============================================================================
 int main()
 {
+    InitWindow(1280, 720, "Elemental Squad");
+    loadGameFonts();
+    SetTargetFPS(60);
     SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT | FLAG_MSAA_4X_HINT);
     InitWindow(VW, VH, "Elemental Squad");
     SetExitKey(KEY_NULL);                 // ESC = go back, not "close the program"
@@ -1637,6 +1924,7 @@ int main()
         EndMode2D();
         EndDrawing();
     }
+    unloadGameFonts();
     CloseWindow();
     return 0;
 }
