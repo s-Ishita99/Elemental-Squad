@@ -20,6 +20,9 @@
 #include <stack>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
+#include <cctype>
+#include <cstdlib>
 
 using namespace std;
 
@@ -269,6 +272,9 @@ static int screen = LOGIN, curLevel = 1, hero = 0, heroPick = -1, pendingLevel =
 static bool showGuide = false, quitGame = false, resWin = false;
 static int resLevel = 1;
 static string msg;
+static string currentPlayerUsername;
+static int runScore = 0, levelScore = 0;
+static double levelStartTime = 0.0;
 static Vector2 gMouse = {0, 0};
 static bool gClick = false;
 static float tokX = 0, tokY = 0;          // smooth on-screen position of the party token (tiles)
@@ -648,8 +654,38 @@ static void drawToken(float tx, float ty, bool active)
 // ============================================================================
 //  RESULT / FLOW HELPERS
 // ============================================================================
-static void showResult(bool win, int level) { resWin = win; resLevel = level; screen = RESULT; showGuide = false; }
-static void goHeroSelect(int level) { pendingLevel = level; heroPick = -1; screen = HERO_SELECT; }
+static void savePlayerScore();
+
+static void showResult(bool win, int level)
+{
+    resWin = win;
+    resLevel = level;
+    levelScore = 0;
+
+    if (win)
+    {
+        int baseScore = level == 1 ? 100 : level == 2 ? 150 : 200;
+        int livesBonus = level == 2 ? l2Lives * 50 : level == 3 ? l3Lives * 50 : 0;
+        int elapsedSeconds = (int)(GetTime() - levelStartTime);
+        int timeBonus = 300 - elapsedSeconds * 2;
+        if (timeBonus < 0) timeBonus = 0;
+
+        levelScore = baseScore + livesBonus + timeBonus;
+        runScore += levelScore;
+        savePlayerScore();
+    }
+
+    screen = RESULT;
+    showGuide = false;
+}
+
+static void goHeroSelect(int level)
+{
+    if (level != resLevel + 1) runScore = 0;
+    pendingLevel = level;
+    heroPick = -1;
+    screen = HERO_SELECT;
+}
 
 // ============================================================================
 //  LEVEL 1  (Rocky pushes boulders, Sprinty crosses gaps)
@@ -994,6 +1030,7 @@ static void startLevel(int lv)
 {
     curLevel = lv;
     hero = heroPick < 0 ? 0 : heroPick;
+    levelStartTime = GetTime();
     flash = 0.0f;
     showGuide = true;                 // short guide first so the player knows the symbols
     if (lv == 1) startLevel1(); else if (lv == 2) startLevel2(); else startLevel3();
@@ -1308,6 +1345,158 @@ static void drawGuide()
 // ============================================================================
 static string loginUser, loginPass;
 static bool passActive = false;
+static string loginMessage;
+
+struct PlayerRecord
+{
+    int playerNumber;
+    string username;
+    string password;
+    int highestScore;
+};
+
+static vector<PlayerRecord> loadPlayers()
+{
+    vector<PlayerRecord> players;
+    ifstream in("players.txt");
+    string line;
+    PlayerRecord player = {};
+    bool hasPlayer = false;
+
+    while (getline(in, line))
+    {
+        if (line.find("PLAYER ") == 0)
+        {
+            if (hasPlayer && !player.username.empty()) players.push_back(player);
+            player = {};
+            player.playerNumber = atoi(line.substr(7).c_str());
+            hasPlayer = true;
+        }
+        else if (line.find("Username: ") == 0) player.username = line.substr(10);
+        else if (line.find("Password: ") == 0) player.password = line.substr(10);
+        else if (line.find("Highest Score: ") == 0) player.highestScore = atoi(line.substr(15).c_str());
+    }
+
+    if (hasPlayer && !player.username.empty()) players.push_back(player);
+    return players;
+}
+
+static bool savePlayers(const vector<PlayerRecord>& players)
+{
+    ofstream out("players.txt");
+    if (!out) return false;
+
+    out << "========================================\n";
+    out << "             ELEMENTAL SQUAD\n";
+    out << "========================================\n\n";
+
+    for (size_t i = 0; i < players.size(); i++)
+    {
+        out << "PLAYER " << i + 1 << '\n';
+        out << "Username: " << players[i].username << '\n';
+        out << "Password: " << players[i].password << '\n';
+        out << "Highest Score: " << players[i].highestScore << "\n\n";
+    }
+    return true;
+}
+
+static void savePlayerScore()
+{
+    vector<PlayerRecord> players = loadPlayers();
+    for (PlayerRecord& player : players)
+    {
+        if (player.username == currentPlayerUsername)
+        {
+            if (runScore > player.highestScore)
+            {
+                player.highestScore = runScore;
+                savePlayers(players);
+            }
+            return;
+        }
+    }
+}
+
+static bool usernameValid(const string& username)
+{
+    if (username.empty() || username.size() > 24) return false;
+    for (unsigned char ch : username)
+        if (!(isalnum(ch) || ch == '_')) return false;
+    return true;
+}
+
+static bool registerAccount()
+{
+    if (!usernameValid(loginUser))
+    {
+        loginMessage = "Use 1-24 letters, numbers or underscores for username.";
+        return false;
+    }
+    if (loginPass.size() < 6)
+    {
+        loginMessage = "Password must contain at least 6 characters.";
+        return false;
+    }
+
+    vector<PlayerRecord> players = loadPlayers();
+    for (const PlayerRecord& player : players)
+    {
+        if (player.username == loginUser)
+        {
+            loginMessage = "Username already exists. Please log in.";
+            return false;
+        }
+    }
+
+    PlayerRecord player;
+    player.playerNumber = (int)players.size() + 1;
+    player.username = loginUser;
+    player.password = loginPass;
+    player.highestScore = 0;
+    players.push_back(player);
+
+    if (!savePlayers(players))
+    {
+        loginMessage = "Could not open players.txt for saving.";
+        return false;
+    }
+
+    loginMessage = "Registration successful! You can now log in.";
+    loginPass.clear();
+    passActive = true;
+    return true;
+}
+
+static bool loginAccount()
+{
+    if (!usernameValid(loginUser) || loginPass.empty())
+    {
+        loginMessage = "Enter both username and password.";
+        return false;
+    }
+
+    vector<PlayerRecord> players = loadPlayers();
+    for (const PlayerRecord& player : players)
+    {
+        if (player.username == loginUser)
+        {
+            if (player.password == loginPass)
+            {
+                loginMessage = "Login successful!";
+                currentPlayerUsername = player.username;
+                runScore = 0;
+                loginPass.clear();
+                screen = MENU;
+                return true;
+            }
+            loginMessage = "Incorrect password.";
+            return false;
+        }
+    }
+
+    loginMessage = "Account not found. Please register first.";
+    return false;
+}
 
 static void drawLogin()
 {
@@ -1327,8 +1516,10 @@ static void drawLogin()
     else txt(loginUser.c_str(), uf.x + 16, uf.y + 13, 22, TXT);
     if (loginPass.empty()) txt("Type your password...", pf.x + 16, pf.y + 14, 20, {120, 130, 160, 255});
     else txt(string(loginPass.size(), '*').c_str(), pf.x + 16, pf.y + 17, 22, TXT);
-    if (btn({500, 520, 280, 60}, "CONTINUE", BLUE_BT, 24)) screen = MENU;
-    ctr("Demo login - accounts are not saved yet.  TAB switches field, ENTER continues.", 640, 650, 16, MUTED);
+    if (btn({450, 520, 180, 60}, "LOGIN", BLUE_BT, 24)) loginAccount();
+    if (btn({650, 520, 180, 60}, "REGISTER", PURP_BT, 22)) registerAccount();
+    if (!loginMessage.empty()) ctr(loginMessage.c_str(), 640, 610, 15, MUTED);
+    ctr("TAB switches field. ENTER moves to password / logs in.", 640, 650, 16, MUTED);
 }
 
 static void drawMenu()
@@ -1441,16 +1632,19 @@ static void drawResult()
     {
         ctr(resLevel == 3 ? "THE SQUAD SAVED THE DAY!" : TextFormat("LEVEL %d COMPLETE!", resLevel), 640, 150, 50, GOLDEN, true);
         ctr(resLevel == 3 ? "All four trials solved. You finished Elemental Squad!" : "Great teamwork. Ready for the next challenge?", 640, 224, 22, GOOD, true);
-        if (resLevel == 1) ctr(TextFormat("Total moves: %d", l1Moves), 640, 270, 20, TXT);
+        ctr(TextFormat("Level score: %d", levelScore), 640, 270, 20, TXT);
+        ctr(TextFormat("Total score this run: %d", runScore), 640, 306, 20, GOLDEN, true);
+        if (resLevel == 1) ctr(TextFormat("Total moves: %d", l1Moves), 640, 340, 18, TXT);
     }
     else
     {
         ctr("GAME OVER", 640, 150, 56, BAD, true);
         ctr("The squad ran out of lives. Try again!", 640, 224, 22, TXT, true);
+        ctr(TextFormat("Score this run: %d", runScore), 640, 270, 20, TXT);
     }
     for (int i = 0; i < 4; i++) drawHeroAt(i, 420 + i * 147, 380, 1.7f);
     if (btn({290, 480, 220, 62}, "PLAY AGAIN", BLUE_BT, 21)) goHeroSelect(resLevel);
-    if (btn({530, 480, 220, 62}, "LEVEL SELECT", PURP_BT, 21)) screen = LEVEL_SELECT;
+    if (btn({530, 480, 220, 62}, "LEVEL SELECT", PURP_BT, 21)) { runScore = 0; screen = LEVEL_SELECT; }
     if (resWin && resLevel < 3) { if (btn({770, 480, 220, 62}, "NEXT LEVEL", RED_BT, 21)) goHeroSelect(resLevel + 1); }
     else if (resWin) { if (btn({770, 480, 220, 62}, "MAIN MENU", RED_BT, 21)) screen = MENU; }
     else { if (btn({770, 480, 220, 62}, "MAIN MENU", RED_BT, 21)) screen = MENU; }
@@ -1495,7 +1689,11 @@ static void handleLogin()
         else if (!passActive && !loginUser.empty()) loginUser.pop_back();
     }
     if (IsKeyPressed(KEY_TAB)) passActive = !passActive;
-    if (IsKeyPressed(KEY_ENTER)) screen = MENU;
+    if (IsKeyPressed(KEY_ENTER))
+    {
+        if (!passActive) passActive = true;
+        else loginAccount();
+    }
 }
 
 static void handleCodePad()
@@ -1569,7 +1767,7 @@ static void update(float dt)
         if (IsKeyPressed(KEY_ENTER) && heroPick >= 0) startLevel(pendingLevel);
         if (IsKeyPressed(KEY_ESCAPE)) screen = LEVEL_SELECT;
     }
-    else if (screen == RESULT) { if (IsKeyPressed(KEY_ESCAPE)) screen = LEVEL_SELECT; }
+    else if (screen == RESULT) { if (IsKeyPressed(KEY_ESCAPE)) { runScore = 0; screen = LEVEL_SELECT; } }
     else if (screen == GAME)
     {
         handleGame();
